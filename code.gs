@@ -605,19 +605,33 @@ IMPORTANTE: Debes generar EXACTAMENTE 8 observaciones numeradas del 1 al 8. Cada
       Logger.log(`Enfoque 2: Se extrajeron ${observaciones.length} observaciones`);
     }
 
-    // ENFOQUE 3: Si aún falla, buscar cualquier lista numerada
+    // ENFOQUE 3: Buscar números dentro del texto continuo (sin depender de saltos de línea)
     if (observaciones.length !== 8) {
       observaciones = [];
 
-      // Buscar todas las líneas que empiezan con número seguido de . o )
-      const numberedLines = cleanText.match(/(?:^|\n)\s*\d+[\.)]\s+[^\n]+/gm);
+      // Remover posible introducción al inicio
+      let workingText = cleanText.replace(/^.*?(?=\d+[\.)]\s)/s, '');
 
-      if (numberedLines && numberedLines.length >= 8) {
-        for (let i = 0; i < 8; i++) {
-          const cleaned = numberedLines[i].replace(/^\s*\d+[\.)]\s+/, '').trim();
-          if (cleaned) {
-            observaciones.push(cleaned);
-          }
+      // Buscar desde "1." hasta "2.", desde "2." hasta "3.", etc.
+      for (let i = 1; i <= 8; i++) {
+        const nextNum = i + 1;
+        let regex;
+
+        if (i < 8) {
+          // Capturar desde "N." hasta "N+1." (en cualquier parte del texto)
+          regex = new RegExp(`${i}[\\.\\)]\\s+([\\s\\S]*?)(?=${nextNum}[\\.\\)])`, 'i');
+        } else {
+          // Para la última observación, capturar desde "8." hasta el final
+          regex = new RegExp(`${i}[\\.\\)]\\s+([\\s\\S]*)$`, 'i');
+        }
+
+        const match = workingText.match(regex);
+        if (match && match[1]) {
+          // Limpiar el texto extraído
+          let obs = match[1].trim();
+          // Remover posibles saltos de línea múltiples
+          obs = obs.replace(/\n\s*\n+/g, ' ').replace(/\s+/g, ' ');
+          observaciones.push(obs);
         }
       }
 
