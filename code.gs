@@ -443,7 +443,7 @@ function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, 
   // Obtener los ítems según el nivel
   const items = nivel === "inicial" ? ITEMS_INICIAL : ITEMS_PRIMARIA;
 
-  // Prompt mejorado con contexto de cada ítem
+  // Prompt mejorado con formato delimitado (más robusto que JSON)
   const prompt = `Eres un asistente especializado en educación que genera informes de actuación docente profesionales.
 
 CONTEXTO DEL DOCENTE:
@@ -473,24 +473,29 @@ Cada observación debe:
 - Ser concisa pero informativa (2-4 oraciones)
 - Usar un tono profesional y constructivo
 - Incluir ejemplos concretos cuando sea posible
-- NO usar comillas dobles dentro del texto, usa comillas simples si es necesario
-- Mantener todo el texto en una sola línea por observación
 
-FORMATO DE RESPUESTA (JSON válido y estricto):
-{
-  "observaciones": [
-    "Observación para el ítem 1",
-    "Observación para el ítem 2",
-    "Observación para el ítem 3",
-    "Observación para el ítem 4",
-    "Observación para el ítem 5",
-    "Observación para el ítem 6",
-    "Observación para el ítem 7",
-    "Observación para el ítem 8"
-  ]
-}
+FORMATO DE RESPUESTA:
+Escribe cada observación separada por el marcador "###OBSERVACION###" de esta forma:
 
-IMPORTANTE: Asegúrate de que el JSON sea válido. No uses comillas dobles dentro de las observaciones.`;
+###OBSERVACION###
+Texto de la observación 1
+###OBSERVACION###
+Texto de la observación 2
+###OBSERVACION###
+Texto de la observación 3
+###OBSERVACION###
+Texto de la observación 4
+###OBSERVACION###
+Texto de la observación 5
+###OBSERVACION###
+Texto de la observación 6
+###OBSERVACION###
+Texto de la observación 7
+###OBSERVACION###
+Texto de la observación 8
+###OBSERVACION###
+
+IMPORTANTE: Usa exactamente el marcador ###OBSERVACION### entre cada observación.`;
 
   const payload = {
     contents: [{
@@ -535,66 +540,40 @@ IMPORTANTE: Asegúrate de que el JSON sea válido. No uses comillas dobles dentr
       throw new Error("La IA no devolvió texto. Revise los logs para más detalles.");
     }
 
-    // Limpiar el texto (a veces viene con ```json ... ```)
+    // Limpiar el texto
     let cleanText = textContent.trim();
-    if (cleanText.startsWith("```json")) {
-      cleanText = cleanText.replace(/```json\n?/, "").replace(/```\s*$/, "");
-    } else if (cleanText.startsWith("```")) {
-      cleanText = cleanText.replace(/```\n?/, "").replace(/```\s*$/, "");
+
+    // Remover bloques de código si los hay
+    if (cleanText.startsWith("```")) {
+      cleanText = cleanText.replace(/```[a-z]*\n?/, "").replace(/```\s*$/, "");
+      cleanText = cleanText.trim();
     }
 
-    // Limpieza adicional: remover caracteres de control y saltos de línea dentro de strings
-    cleanText = cleanText.trim();
+    // Parsear usando el delimitador ###OBSERVACION###
+    const delimiter = "###OBSERVACION###";
+    const parts = cleanText.split(delimiter);
 
-    // Parsear JSON con manejo de errores mejorado
-    let jsonData;
-    try {
-      jsonData = JSON.parse(cleanText);
-    } catch (parseError) {
-      // Si falla el parsing, intentar reparar el JSON
-      Logger.log("Error al parsear JSON, intentando reparar...");
-      Logger.log("Texto recibido: " + cleanText.substring(0, 500));
+    // Filtrar partes vacías y limpiar espacios
+    const observaciones = parts
+      .map(part => part.trim())
+      .filter(part => part.length > 0);
 
-      // Intentar extraer solo el array de observaciones
-      const match = cleanText.match(/"observaciones"\s*:\s*\[([\s\S]*)\]/);
-      if (match) {
-        try {
-          // Reconstruir el JSON
-          const obsArray = match[1];
-          // Limpiar comillas mal escapadas
-          const cleanArray = obsArray
-            .replace(/\n/g, ' ')  // Reemplazar saltos de línea por espacios
-            .replace(/\r/g, ' ')  // Reemplazar retornos de carro
-            .replace(/\t/g, ' ')  // Reemplazar tabs
-            .replace(/\s+/g, ' '); // Normalizar espacios múltiples
-
-          jsonData = JSON.parse(`{"observaciones":[${cleanArray}]}`);
-        } catch (e2) {
-          throw new Error(`No se pudo parsear el JSON. Error original: ${parseError.message}`);
-        }
-      } else {
-        throw new Error(`Formato de JSON inválido. Error: ${parseError.message}`);
-      }
+    // Validar que tengamos exactamente 8 observaciones
+    if (observaciones.length !== 8) {
+      Logger.log("Texto completo recibido: " + cleanText.substring(0, 1000));
+      Logger.log(`Se recibieron ${observaciones.length} observaciones`);
+      throw new Error(`Se esperaban 8 observaciones, pero se recibieron ${observaciones.length}. Revisa los logs para más detalles.`);
     }
 
-    if (!jsonData.observaciones || !Array.isArray(jsonData.observaciones)) {
-      throw new Error("El formato de respuesta no incluye el array 'observaciones'");
-    }
-
-    if (jsonData.observaciones.length !== 8) {
-      throw new Error(`Se esperaban 8 observaciones, pero se recibieron ${jsonData.observaciones.length}`);
-    }
-
-    // Validar que todas las observaciones tengan contenido
-    const observacionesValidas = jsonData.observaciones.every(obs =>
-      typeof obs === 'string' && obs.trim().length > 10
-    );
+    // Validar que todas las observaciones tengan contenido suficiente
+    const observacionesValidas = observaciones.every(obs => obs.length > 20);
 
     if (!observacionesValidas) {
       throw new Error("Algunas observaciones están vacías o son muy cortas");
     }
 
-    return jsonData.observaciones;
+    Logger.log("Observaciones generadas exitosamente");
+    return observaciones;
 
   } catch (e) {
     Logger.log("Error en generarObservacionesConIA_: " + e.toString());
