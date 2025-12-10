@@ -198,14 +198,27 @@ function generarInforme(params) {
     params.infoExtra
   );
 
-  const root = DriveApp.getRootFolder();
-  const folderRoot = getOrCreateFolder_(root, ROOT_FOLDER_NAME);
+  // Determinar carpeta de destino (personalizada o por defecto)
+  const customFolderId = obtenerCarpeta();
+  let folderRoot;
+
+  if (customFolderId) {
+    // Usar carpeta personalizada
+    folderRoot = DriveApp.getFolderById(customFolderId);
+  } else {
+    // Usar carpeta por defecto
+    const root = DriveApp.getRootFolder();
+    folderRoot = getOrCreateFolder_(root, ROOT_FOLDER_NAME);
+  }
+
   const outFolder = nivel === "inicial"
     ? getOrCreateFolder_(folderRoot, INITIAL_FOLDER_NAME)
     : getOrCreateFolder_(folderRoot, PRIMARY_FOLDER_NAME);
 
   // Plantilla correcta
-  const templateFolder = getOrCreateFolder_(folderRoot, TEMPLATE_FOLDER_NAME);
+  const root = DriveApp.getRootFolder();
+  const defaultFolderRoot = getOrCreateFolder_(root, ROOT_FOLDER_NAME);
+  const templateFolder = getOrCreateFolder_(defaultFolderRoot, TEMPLATE_FOLDER_NAME);
   const plantName = nivel === "inicial" ? TEMPLATE_INITIAL_NAME : TEMPLATE_PRIMARY_NAME;
   const plantilla = templateFolder.getFilesByName(plantName).next();
 
@@ -228,7 +241,16 @@ function generarInforme(params) {
   );
 
   doc.saveAndClose();
-  return { url: doc.getUrl() };
+
+  // Retornar información completa para el historial
+  return {
+    url: doc.getUrl(),
+    titulo: `Informe - ${docente.nombre} - ${nivel}`,
+    docente: docente.nombre,
+    nivel: nivel === "inicial" ? "Inicial" : "Primaria",
+    fecha: `${FECHA.DIA}/${FECHA.MES}/${FECHA.ANIO}`,
+    timestamp: new Date().getTime()
+  };
 }
 
 /*************************************************************
@@ -272,6 +294,61 @@ function guardarModelo(modelo) {
 function obtenerModelo() {
   const modelo = PropertiesService.getScriptProperties().getProperty("GEMINI_MODEL");
   return modelo || "gemini-2.5-flash";
+}
+
+// Extraer ID de carpeta desde URL o ID directo
+function extraerFolderId_(input) {
+  if (!input || input.trim() === "") return null;
+
+  const cleanInput = input.trim();
+
+  // Si es una URL de Google Drive
+  if (cleanInput.includes("drive.google.com")) {
+    const match = cleanInput.match(/folders\/([a-zA-Z0-9_-]+)/);
+    return match ? match[1] : null;
+  }
+
+  // Si ya es un ID directo
+  return cleanInput;
+}
+
+// Guardar carpeta personalizada
+function guardarCarpeta(input) {
+  try {
+    const folderId = extraerFolderId_(input);
+
+    if (!folderId) {
+      throw new Error("No se pudo extraer el ID de la carpeta. Proporciona una URL válida o un ID de carpeta.");
+    }
+
+    // Verificar que la carpeta existe y es accesible
+    const folder = DriveApp.getFolderById(folderId);
+    PropertiesService.getScriptProperties().setProperty("CUSTOM_FOLDER_ID", folderId);
+    return { success: true, message: "Carpeta configurada: " + folder.getName() };
+  } catch (e) {
+    throw new Error("Error: Carpeta no válida o sin permisos de acceso. Verifica la URL o ID.");
+  }
+}
+
+// Obtener carpeta configurada
+function obtenerCarpeta() {
+  const folderId = PropertiesService.getScriptProperties().getProperty("CUSTOM_FOLDER_ID");
+  return folderId || null;
+}
+
+// Verificar carpeta personalizada
+function verificarCarpeta() {
+  const folderId = obtenerCarpeta();
+  if (!folderId) {
+    return { configurada: false, nombre: null };
+  }
+
+  try {
+    const folder = DriveApp.getFolderById(folderId);
+    return { configurada: true, nombre: folder.getName() };
+  } catch (e) {
+    return { configurada: false, nombre: null, error: "Carpeta no accesible" };
+  }
 }
 
 // Listar modelos disponibles
