@@ -473,20 +473,24 @@ Cada observación debe:
 - Ser concisa pero informativa (2-4 oraciones)
 - Usar un tono profesional y constructivo
 - Incluir ejemplos concretos cuando sea posible
+- NO usar comillas dobles dentro del texto, usa comillas simples si es necesario
+- Mantener todo el texto en una sola línea por observación
 
-FORMATO DE RESPUESTA (JSON estricto):
+FORMATO DE RESPUESTA (JSON válido y estricto):
 {
   "observaciones": [
-    "Observación para el ítem 1...",
-    "Observación para el ítem 2...",
-    "Observación para el ítem 3...",
-    "Observación para el ítem 4...",
-    "Observación para el ítem 5...",
-    "Observación para el ítem 6...",
-    "Observación para el ítem 7...",
-    "Observación para el ítem 8..."
+    "Observación para el ítem 1",
+    "Observación para el ítem 2",
+    "Observación para el ítem 3",
+    "Observación para el ítem 4",
+    "Observación para el ítem 5",
+    "Observación para el ítem 6",
+    "Observación para el ítem 7",
+    "Observación para el ítem 8"
   ]
-}`;
+}
+
+IMPORTANTE: Asegúrate de que el JSON sea válido. No uses comillas dobles dentro de las observaciones.`;
 
   const payload = {
     contents: [{
@@ -539,8 +543,39 @@ FORMATO DE RESPUESTA (JSON estricto):
       cleanText = cleanText.replace(/```\n?/, "").replace(/```\s*$/, "");
     }
 
-    // Parsear JSON
-    const jsonData = JSON.parse(cleanText);
+    // Limpieza adicional: remover caracteres de control y saltos de línea dentro de strings
+    cleanText = cleanText.trim();
+
+    // Parsear JSON con manejo de errores mejorado
+    let jsonData;
+    try {
+      jsonData = JSON.parse(cleanText);
+    } catch (parseError) {
+      // Si falla el parsing, intentar reparar el JSON
+      Logger.log("Error al parsear JSON, intentando reparar...");
+      Logger.log("Texto recibido: " + cleanText.substring(0, 500));
+
+      // Intentar extraer solo el array de observaciones
+      const match = cleanText.match(/"observaciones"\s*:\s*\[([\s\S]*)\]/);
+      if (match) {
+        try {
+          // Reconstruir el JSON
+          const obsArray = match[1];
+          // Limpiar comillas mal escapadas
+          const cleanArray = obsArray
+            .replace(/\n/g, ' ')  // Reemplazar saltos de línea por espacios
+            .replace(/\r/g, ' ')  // Reemplazar retornos de carro
+            .replace(/\t/g, ' ')  // Reemplazar tabs
+            .replace(/\s+/g, ' '); // Normalizar espacios múltiples
+
+          jsonData = JSON.parse(`{"observaciones":[${cleanArray}]}`);
+        } catch (e2) {
+          throw new Error(`No se pudo parsear el JSON. Error original: ${parseError.message}`);
+        }
+      } else {
+        throw new Error(`Formato de JSON inválido. Error: ${parseError.message}`);
+      }
+    }
 
     if (!jsonData.observaciones || !Array.isArray(jsonData.observaciones)) {
       throw new Error("El formato de respuesta no incluye el array 'observaciones'");
