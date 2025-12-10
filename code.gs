@@ -443,56 +443,41 @@ function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, 
   // Obtener los ítems según el nivel
   const items = nivel === "inicial" ? ITEMS_INICIAL : ITEMS_PRIMARIA;
 
-  // Prompt con formato numerado (más natural para la IA)
-  const prompt = `Eres un asistente especializado en educación que genera informes de actuación docente profesionales.
+  // Prompt simplificado con delimitadores únicos
+  const prompt = `Genera 8 observaciones profesionales para un informe de actuación docente.
 
-CONTEXTO DEL DOCENTE:
-- Nombre: ${docente.nombre}
-- Nivel: ${nivel === "inicial" ? "Educación Inicial" : "Primaria"}
-- Grupo/Clase: ${grupo || docente.clase}
-- Carácter del cargo: ${docente.caracterCargo}
-- Antigüedad: ${docente.antiguedad}
+DATOS DEL DOCENTE:
+Nombre: ${docente.nombre}
+Nivel: ${nivel === "inicial" ? "Inicial" : "Primaria"}
+Clase: ${grupo || docente.clase}
+Fortalezas: ${fortalezas || "No especificadas"}
+Mejoras: ${mejoras || "No especificadas"}
+Info adicional: ${infoExtra || "Ninguna"}
 
-FORTALEZAS OBSERVADAS:
-${fortalezas || "No se especificaron fortalezas particulares."}
+CRITERIOS DE EVALUACIÓN:
+${items.map((item, i) => `\nCRITERIO ${i+1}: ${item}`).join('\n')}
 
-ASPECTOS A MEJORAR:
-${mejoras || "No se especificaron aspectos a mejorar."}
+INSTRUCCIONES:
+Escribe EXACTAMENTE 8 observaciones (2-3 oraciones cada una). Usa este formato EXACTAMENTE:
 
-INFORMACIÓN ADICIONAL:
-${infoExtra || "No se proporcionó información adicional."}
+---OBS1---
+Tu observación para el criterio 1 aquí
+---OBS2---
+Tu observación para el criterio 2 aquí
+---OBS3---
+Tu observación para el criterio 3 aquí
+---OBS4---
+Tu observación para el criterio 4 aquí
+---OBS5---
+Tu observación para el criterio 5 aquí
+---OBS6---
+Tu observación para el criterio 6 aquí
+---OBS7---
+Tu observación para el criterio 7 aquí
+---OBS8---
+Tu observación para el criterio 8 aquí
 
-ÍTEMS DEL INFORME:
-${items.map((item, i) => `\n${i+1}. ${item}`).join('\n')}
-
-TAREA:
-Genera exactamente 8 observaciones profesionales y específicas, una por cada ítem listado arriba.
-Cada observación debe:
-- Relacionarse directamente con el ítem correspondiente
-- Integrar las fortalezas y aspectos a mejorar mencionados cuando sea relevante
-- Ser concisa pero informativa (2-4 oraciones)
-- Usar un tono profesional y constructivo
-- Incluir ejemplos concretos cuando sea posible
-
-FORMATO DE RESPUESTA (usar EXACTAMENTE este formato numerado):
-
-1. [Observación para el ítem 1 aquí]
-
-2. [Observación para el ítem 2 aquí]
-
-3. [Observación para el ítem 3 aquí]
-
-4. [Observación para el ítem 4 aquí]
-
-5. [Observación para el ítem 5 aquí]
-
-6. [Observación para el ítem 6 aquí]
-
-7. [Observación para el ítem 7 aquí]
-
-8. [Observación para el ítem 8 aquí]
-
-IMPORTANTE: Debes generar EXACTAMENTE 8 observaciones numeradas del 1 al 8. Cada número debe estar al inicio de línea seguido de un punto y espacio.`;
+IMPORTANTE: Usa EXACTAMENTE los marcadores ---OBS1--- hasta ---OBS8---`;
 
   const payload = {
     contents: [{
@@ -546,136 +531,69 @@ IMPORTANTE: Debes generar EXACTAMENTE 8 observaciones numeradas del 1 al 8. Cada
       cleanText = cleanText.trim();
     }
 
-    Logger.log("Texto recibido de la IA (primeros 500 caracteres):");
-    Logger.log(cleanText.substring(0, 500));
+    Logger.log("=== PARSING OBSERVACIONES ===");
+    Logger.log("Texto recibido (primeros 800 caracteres):");
+    Logger.log(cleanText.substring(0, 800));
 
-    // Parsear usando formato numerado - MÚLTIPLES ENFOQUES
-    let observaciones = [];
+    // PARSING SIMPLIFICADO - Buscar delimitadores ---OBS1--- hasta ---OBS8---
+    const observaciones = [];
 
-    // ENFOQUE 1: Formato "1." con captura entre números
     for (let i = 1; i <= 8; i++) {
-      const nextNum = i + 1;
-      let regex;
+      const delimiter = `---OBS${i}---`;
+      const nextDelimiter = `---OBS${i + 1}---`;
 
+      // Buscar el delimitador actual
+      const startIndex = cleanText.indexOf(delimiter);
+
+      if (startIndex === -1) {
+        Logger.log(`No se encontró el delimitador ${delimiter}`);
+        continue;
+      }
+
+      // Extraer texto después del delimitador
+      const textAfterDelimiter = cleanText.substring(startIndex + delimiter.length);
+
+      // Buscar el siguiente delimitador o el final del texto
+      let endIndex;
       if (i < 8) {
-        // Capturar desde "N." hasta "N+1." - más flexible
-        regex = new RegExp(`(?:^|\\n)\\s*${i}\\.\\s+([\\s\\S]*?)(?=\\n\\s*${nextNum}\\.\\s)`, 'im');
+        endIndex = textAfterDelimiter.indexOf(nextDelimiter);
       } else {
-        // Para la última observación
-        regex = new RegExp(`(?:^|\\n)\\s*${i}\\.\\s+([\\s\\S]*)$`, 'im');
+        // Para la última observación, tomar todo hasta el final
+        endIndex = textAfterDelimiter.length;
       }
 
-      const match = cleanText.match(regex);
-      if (match && match[1]) {
-        observaciones.push(match[1].trim());
-      }
-    }
-
-    Logger.log(`Enfoque 1: Se extrajeron ${observaciones.length} observaciones`);
-
-    // ENFOQUE 2: Si el enfoque 1 falla, buscar línea por línea
-    if (observaciones.length !== 8) {
-      observaciones = [];
-      const lines = cleanText.split(/\n+/);
-
-      for (let i = 1; i <= 8; i++) {
-        // Buscar variaciones: "1.", "1)", "**1.**", etc.
-        const patterns = [
-          new RegExp(`^\\s*\\*{0,2}${i}\\.\\*{0,2}\\s+(.+)`, 'i'),    // 1. o **1.**
-          new RegExp(`^\\s*${i}\\)\\s+(.+)`, 'i'),                     // 1)
-          new RegExp(`^\\s*${i}\\s+-\\s+(.+)`, 'i'),                   // 1 -
-          new RegExp(`^\\s*Ítem\\s+${i}[:\\.]\\s+(.+)`, 'i'),          // Ítem 1:
-          new RegExp(`^\\s*Observación\\s+${i}[:\\.]\\s+(.+)`, 'i')    // Observación 1:
-        ];
-
-        for (const line of lines) {
-          let found = false;
-          for (const pattern of patterns) {
-            const match = line.match(pattern);
-            if (match && match[1]) {
-              observaciones.push(match[1].trim());
-              found = true;
-              break;
-            }
-          }
-          if (found) break;
-        }
+      if (endIndex === -1) {
+        // Si no encuentra el siguiente delimitador, tomar hasta el final
+        endIndex = textAfterDelimiter.length;
       }
 
-      Logger.log(`Enfoque 2: Se extrajeron ${observaciones.length} observaciones`);
-    }
+      // Extraer la observación
+      const observacion = textAfterDelimiter.substring(0, endIndex).trim();
 
-    // ENFOQUE 3: Buscar números dentro del texto continuo (sin depender de saltos de línea)
-    if (observaciones.length !== 8) {
-      observaciones = [];
-
-      // Remover posible introducción al inicio
-      let workingText = cleanText.replace(/^.*?(?=\d+[\.)]\s)/s, '');
-
-      // Buscar desde "1." hasta "2.", desde "2." hasta "3.", etc.
-      for (let i = 1; i <= 8; i++) {
-        const nextNum = i + 1;
-        let regex;
-
-        if (i < 8) {
-          // Capturar desde "N." hasta "N+1." (en cualquier parte del texto)
-          regex = new RegExp(`${i}[\\.\\)]\\s+([\\s\\S]*?)(?=${nextNum}[\\.\\)])`, 'i');
-        } else {
-          // Para la última observación, capturar desde "8." hasta el final
-          regex = new RegExp(`${i}[\\.\\)]\\s+([\\s\\S]*)$`, 'i');
-        }
-
-        const match = workingText.match(regex);
-        if (match && match[1]) {
-          // Limpiar el texto extraído
-          let obs = match[1].trim();
-          // Remover posibles saltos de línea múltiples
-          obs = obs.replace(/\n\s*\n+/g, ' ').replace(/\s+/g, ' ');
-          observaciones.push(obs);
-        }
-      }
-
-      Logger.log(`Enfoque 3: Se extrajeron ${observaciones.length} observaciones`);
-    }
-
-    // ENFOQUE 4: Último recurso - dividir por párrafos
-    if (observaciones.length !== 8) {
-      observaciones = [];
-
-      // Dividir por párrafos (doble salto de línea o más)
-      const paragraphs = cleanText
-        .split(/\n\s*\n+/)
-        .map(p => p.trim())
-        .filter(p => p.length > 50); // Solo párrafos con contenido sustancial
-
-      if (paragraphs.length === 8) {
-        // Remover números al inicio si los hay
-        observaciones = paragraphs.map(p => p.replace(/^\s*\d+[\.)]\s*/, '').trim());
-        Logger.log("Enfoque 4: Usando división por párrafos");
+      if (observacion.length > 10) {
+        observaciones.push(observacion);
+        Logger.log(`✓ OBS${i}: ${observacion.substring(0, 60)}...`);
+      } else {
+        Logger.log(`✗ OBS${i}: Vacía o muy corta`);
       }
     }
 
-    // Validar resultado final
+    // Validar que tengamos 8 observaciones
     if (observaciones.length !== 8) {
-      Logger.log("TEXTO COMPLETO RECIBIDO:");
+      Logger.log(`\n=== ERROR: Se esperaban 8 observaciones, se encontraron ${observaciones.length} ===`);
+      Logger.log("\nTEXTO COMPLETO RECIBIDO:");
       Logger.log(cleanText);
-      Logger.log(`Total de observaciones extraídas: ${observaciones.length}`);
 
-      throw new Error(`No se pudieron extraer 8 observaciones del texto. Se encontraron ${observaciones.length}. Verifica los logs del script (Ver > Registros) para ver el texto completo generado por la IA.`);
+      throw new Error(`Se esperaban 8 observaciones pero se encontraron ${observaciones.length}. La IA no siguió el formato con delimitadores ---OBS1--- a ---OBS8---. Verifica los logs (Extensiones > Apps Script > Ejecuciones) para ver el texto completo.`);
     }
 
-    // Validar que todas las observaciones tengan contenido suficiente
-    const observacionesValidas = observaciones.every(obs => obs.length > 15);
-
-    if (!observacionesValidas) {
-      Logger.log("Observaciones extraídas:");
-      observaciones.forEach((obs, i) => Logger.log(`${i+1}: ${obs.substring(0, 100)}...`));
-      throw new Error("Algunas observaciones están vacías o son muy cortas");
+    // Validar longitud mínima
+    const observacionesCortas = observaciones.filter(obs => obs.length < 20);
+    if (observacionesCortas.length > 0) {
+      Logger.log(`Advertencia: ${observacionesCortas.length} observaciones son muy cortas`);
     }
 
-    Logger.log("✓ Observaciones generadas exitosamente");
-    observaciones.forEach((obs, i) => Logger.log(`${i+1}: ${obs.substring(0, 80)}...`));
-
+    Logger.log("\n=== ✓ ÉXITO: 8 observaciones extraídas correctamente ===");
     return observaciones;
 
   } catch (e) {
