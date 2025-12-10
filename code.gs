@@ -491,23 +491,64 @@ IMPORTANTE: Usa EXACTAMENTE los marcadores ---OBS1--- hasta ---OBS8---`;
     }
   };
 
-  try {
-    const resp = UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
+  // Reintentos automáticos para errores temporales (503, 429, 500)
+  const maxRetries = 3;
+  let resp = null;
+  let raw = null;
+  let statusCode = null;
 
-    const statusCode = resp.getResponseCode();
-    const raw = resp.getContentText();
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      if (attempt > 1) {
+        // Espera progresiva: 2s, 4s
+        const waitTime = Math.pow(2, attempt - 1) * 1000;
+        Logger.log(`Reintento ${attempt}/${maxRetries} después de ${waitTime/1000}s...`);
+        Utilities.sleep(waitTime);
+      }
 
-    if (statusCode !== 200) {
-      Logger.log("Error de API Gemini: " + raw);
-      throw new Error(`Error de API (${statusCode}): ${raw.substring(0, 200)}`);
+      resp = UrlFetchApp.fetch(url, {
+        method: "post",
+        contentType: "application/json",
+        payload: JSON.stringify(payload),
+        muteHttpExceptions: true
+      });
+
+      statusCode = resp.getResponseCode();
+      raw = resp.getContentText();
+
+      // Errores transitorios - reintentar
+      if (statusCode === 503 || statusCode === 429 || statusCode === 500) {
+        Logger.log(`Intento ${attempt}/${maxRetries}: Error transitorio ${statusCode}`);
+
+        if (attempt < maxRetries) {
+          continue; // Reintentar
+        } else {
+          throw new Error(`El servicio de Google AI está temporalmente no disponible (Error ${statusCode}). Por favor intenta de nuevo en unos minutos.`);
+        }
+      }
+
+      // Otros errores - no reintentar
+      if (statusCode !== 200) {
+        Logger.log("Error de API Gemini: " + raw);
+        throw new Error(`Error de API (${statusCode}): ${raw.substring(0, 200)}`);
+      }
+
+      // Éxito - salir del loop
+      Logger.log("✓ Respuesta exitosa de Google AI");
+      break;
+
+    } catch (e) {
+      // Si es el último intento o no es un error transitorio, lanzar
+      if (attempt === maxRetries || statusCode === 400 || statusCode === 401 || statusCode === 403) {
+        throw e;
+      }
+      // Sino, continuar con siguiente intento
+      Logger.log(`Intento ${attempt} falló, reintentando...`);
     }
+  }
 
-    // Extraer texto de la respuesta
+  // Procesar la respuesta exitosa
+  try {
     const responseData = JSON.parse(raw);
 
     // Verificar si hay errores de seguridad o bloqueos
