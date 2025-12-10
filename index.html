@@ -4,179 +4,396 @@
   <meta charset="UTF-8">
   <base target="_top">
   <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
     body {
-      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: #f8f9fa;
       padding: 20px;
-      max-width: 800px;
-      margin: 0 auto;
-      background: #f5f5f5;
-    }
-    .container {
-      background: white;
-      padding: 25px;
-      border-radius: 8px;
-      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    }
-    h2 {
-      color: #1a73e8;
-      border-bottom: 2px solid #1a73e8;
-      padding-bottom: 10px;
-    }
-    h3 {
-      color: #5f6368;
-      margin-top: 20px;
-      font-size: 1.1em;
-    }
-    label {
-      font-weight: bold;
-      margin-top: 10px;
-      display: block;
       color: #333;
+      line-height: 1.6;
     }
-    select, textarea, input {
+
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      border-radius: 8px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 24px;
+      text-align: center;
+    }
+
+    header h1 {
+      font-size: 24px;
+      font-weight: 600;
+      margin: 0;
+    }
+
+    .content {
+      padding: 24px;
+    }
+
+    /* Collapsible Section */
+    .collapsible {
+      background: #f8f9fa;
+      border: 1px solid #e1e4e8;
+      border-radius: 6px;
+      margin-bottom: 20px;
+      overflow: hidden;
+    }
+
+    .collapsible-header {
+      padding: 16px;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    .collapsible-header:hover {
+      background: #e9ecef;
+    }
+
+    .collapsible-header .arrow {
+      transition: transform 0.3s;
+      font-size: 12px;
+    }
+
+    .collapsible-header.active .arrow {
+      transform: rotate(180deg);
+    }
+
+    .collapsible-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height 0.3s ease-out;
+    }
+
+    .collapsible-content.active {
+      max-height: 800px;
+    }
+
+    .collapsible-inner {
+      padding: 16px;
+      border-top: 1px solid #e1e4e8;
+    }
+
+    /* Status Badge */
+    .status-badge {
+      display: inline-block;
+      padding: 4px 10px;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .status-badge.success {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status-badge.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    /* Form Elements */
+    label {
+      display: block;
+      font-weight: 500;
+      margin-bottom: 6px;
+      margin-top: 16px;
+      font-size: 14px;
+      color: #495057;
+    }
+
+    label:first-child {
+      margin-top: 0;
+    }
+
+    input, select, textarea {
       width: 100%;
-      padding: 8px;
-      margin-top: 4px;
-      border: 1px solid #dadce0;
+      padding: 10px 12px;
+      border: 1px solid #ced4da;
       border-radius: 4px;
       font-size: 14px;
-      box-sizing: border-box;
-    }
-    textarea {
-      min-height: 80px;
       font-family: inherit;
-      resize: vertical;
+      transition: border-color 0.2s;
     }
+
+    input:focus, select:focus, textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    textarea {
+      resize: vertical;
+      min-height: 80px;
+    }
+
+    .input-hint {
+      font-size: 12px;
+      color: #6c757d;
+      margin-top: 4px;
+    }
+
+    /* Buttons */
     button {
-      margin-top: 15px;
-      padding: 10px 20px;
-      cursor: pointer;
+      padding: 10px 18px;
       border: none;
       border-radius: 4px;
       font-size: 14px;
       font-weight: 500;
-      transition: all 0.3s;
+      cursor: pointer;
+      transition: all 0.2s;
     }
+
     button.primary {
-      background: #1a73e8;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
+      width: 100%;
+      padding: 12px;
+      margin-top: 24px;
     }
-    button.primary:hover {
-      background: #1557b0;
+
+    button.primary:hover:not(:disabled) {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
     }
+
     button.secondary {
-      background: #f1f3f4;
-      color: #5f6368;
+      background: #e9ecef;
+      color: #495057;
+      margin-right: 8px;
+      margin-top: 8px;
     }
-    button.secondary:hover {
-      background: #e8eaed;
+
+    button.secondary:hover:not(:disabled) {
+      background: #dee2e6;
     }
+
     button:disabled {
-      opacity: 0.5;
+      opacity: 0.6;
       cursor: not-allowed;
     }
-    .status {
-      margin-top: 15px;
-      padding: 10px;
+
+    /* Alert Messages */
+    .alert {
+      padding: 12px 16px;
       border-radius: 4px;
+      margin-top: 16px;
+      font-size: 14px;
       display: none;
     }
-    .status.success {
-      background: #e6f4ea;
-      color: #137333;
+
+    .alert.show {
       display: block;
+      animation: slideDown 0.3s ease-out;
     }
-    .status.error {
-      background: #fce8e6;
-      color: #c5221f;
-      display: block;
+
+    @keyframes slideDown {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
-    .status.info {
-      background: #e8f0fe;
-      color: #1967d2;
-      display: block;
+
+    .alert.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
     }
-    .api-config {
-      background: #f8f9fa;
-      padding: 15px;
-      border-radius: 4px;
-      margin-bottom: 20px;
+
+    .alert.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
     }
-    .api-status {
+
+    .alert.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+    }
+
+    /* Loading Spinner */
+    .spinner {
       display: inline-block;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 500;
-    }
-    .api-status.configured {
-      background: #e6f4ea;
-      color: #137333;
-    }
-    .api-status.not-configured {
-      background: #fce8e6;
-      color: #c5221f;
-    }
-    .loading {
-      display: inline-block;
-      border: 2px solid #f3f3f3;
-      border-top: 2px solid #1a73e8;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: white;
       border-radius: 50%;
-      width: 16px;
-      height: 16px;
-      animation: spin 1s linear infinite;
-      margin-left: 10px;
+      animation: spin 0.8s linear infinite;
+      margin-left: 8px;
+      vertical-align: middle;
     }
+
     @keyframes spin {
-      0% { transform: rotate(0deg); }
-      100% { transform: rotate(360deg); }
+      to { transform: rotate(360deg); }
     }
-    .section {
-      margin-bottom: 20px;
+
+    /* Reports History */
+    .history-section {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 2px solid #e9ecef;
+    }
+
+    .history-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #495057;
+    }
+
+    .report-item {
+      background: #f8f9fa;
+      border: 1px solid #e1e4e8;
+      border-radius: 6px;
+      padding: 14px 16px;
+      margin-bottom: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.2s;
+    }
+
+    .report-item:hover {
+      border-color: #667eea;
+      transform: translateX(4px);
+    }
+
+    .report-info {
+      flex: 1;
+    }
+
+    .report-title {
+      font-weight: 500;
+      color: #333;
+      margin-bottom: 4px;
+    }
+
+    .report-meta {
+      font-size: 12px;
+      color: #6c757d;
+    }
+
+    .report-link {
+      padding: 6px 14px;
+      background: #667eea;
+      color: white;
+      text-decoration: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.2s;
+    }
+
+    .report-link:hover {
+      background: #5568d3;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: #6c757d;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      opacity: 0.3;
+      margin-bottom: 12px;
+    }
+
+    .section-divider {
+      height: 1px;
+      background: #e9ecef;
+      margin: 24px 0;
     }
   </style>
 </head>
 <body>
 
 <div class="container">
-  <h2>🎓 Generador de Informe de Actuación Docente</h2>
+  <header>
+    <h1>Generador de Informes de Actuación Docente</h1>
+  </header>
 
-  <!-- Configuración de API -->
-  <div class="api-config section">
-    <h3>⚙️ Configuración de Google AI (Gemini)</h3>
-    <p style="font-size: 14px; color: #5f6368; margin: 5px 0;">
-      Estado: <span id="apiStatus" class="api-status not-configured">No configurada</span>
-    </p>
-    <label>API Key de Gemini</label>
-    <input type="password" id="apiKey" placeholder="Ingresa tu API Key de Gemini">
+  <div class="content">
 
-    <label style="margin-top: 15px;">Modelo de IA</label>
-    <select id="modeloIA">
-      <option value="gemini-2.5-flash">Gemini 2.5 Flash ⚡ (Recomendado - Rápido y eficiente)</option>
-      <option value="gemini-2.5-pro">Gemini 2.5 Pro 🏆 (Mejor calidad, más lento)</option>
-      <option value="gemini-flash-latest">Gemini Flash Latest (Versión estable más reciente)</option>
-      <option value="gemini-pro-latest">Gemini Pro Latest (Máxima calidad estable)</option>
-      <option value="gemini-2.0-flash">Gemini 2.0 Flash (Versión anterior rápida)</option>
-    </select>
-    <p style="font-size: 11px; color: #666; margin: 4px 0;">
-      💡 <strong>Flash</strong> = Rápido y económico | <strong>Pro</strong> = Mayor calidad y razonamiento
-    </p>
+    <!-- Configuración (Collapsible) -->
+    <div class="collapsible">
+      <div class="collapsible-header" id="configHeader">
+        <span>Configuración del Sistema</span>
+        <span class="arrow">▼</span>
+      </div>
+      <div class="collapsible-content" id="configContent">
+        <div class="collapsible-inner">
 
-    <div style="margin-top: 8px;">
-      <button class="secondary" id="btnGuardarApi">Guardar Configuración</button>
-      <button class="secondary" id="btnProbarApi">Probar Conexión</button>
+          <!-- API Configuration -->
+          <label>API Key de Google AI (Gemini)</label>
+          <input type="password" id="apiKey" placeholder="Tu API Key de Gemini">
+          <div class="input-hint">
+            Estado: <span id="apiStatus" class="status-badge error">No configurada</span>
+            | <a href="https://makersuite.google.com/app/apikey" target="_blank">Obtener API Key</a>
+          </div>
+
+          <label>Modelo de IA</label>
+          <select id="modeloIA">
+            <option value="gemini-2.5-flash">Gemini 2.5 Flash (Recomendado)</option>
+            <option value="gemini-2.5-pro">Gemini 2.5 Pro</option>
+            <option value="gemini-flash-latest">Gemini Flash Latest</option>
+            <option value="gemini-pro-latest">Gemini Pro Latest</option>
+            <option value="gemini-2.0-flash">Gemini 2.0 Flash</option>
+          </select>
+          <div class="input-hint">Flash = Rápido | Pro = Mayor calidad</div>
+
+          <div style="margin-top: 12px;">
+            <button class="secondary" id="btnGuardarApi">Guardar Configuración</button>
+            <button class="secondary" id="btnProbarApi">Probar Conexión</button>
+          </div>
+          <div class="alert" id="alertApi"></div>
+
+          <div class="section-divider"></div>
+
+          <!-- Custom Folder -->
+          <label>Carpeta de Google Drive (opcional)</label>
+          <input type="text" id="carpetaDrive" placeholder="Pega aquí la URL o ID de tu carpeta de Drive">
+          <div class="input-hint">
+            Estado: <span id="carpetaStatus" class="status-badge error">No configurada</span>
+            | Si no configuras, se usará la carpeta predeterminada
+          </div>
+
+          <button class="secondary" id="btnGuardarCarpeta">Guardar Carpeta</button>
+          <div class="alert" id="alertCarpeta"></div>
+
+        </div>
+      </div>
     </div>
-    <p id="estadoApi" class="status"></p>
-    <p style="font-size: 12px; color: #5f6368; margin-top: 10px;">
-      📝 Obtén tu API Key gratis en: <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>
-    </p>
-  </div>
 
-  <hr style="border: none; border-top: 1px solid #dadce0; margin: 20px 0;">
+    <!-- Generación de Informe -->
+    <h3 style="margin-bottom: 16px; color: #495057;">Datos del Informe</h3>
 
-  <h3>📋 Datos del Informe</h3>
-
-  <div class="section">
     <label>Nivel</label>
     <select id="nivel">
       <option value="inicial">Educación Inicial</option>
@@ -185,185 +402,310 @@
 
     <label>Docente</label>
     <select id="docente">
-      <option value="">Selecciona un nivel...</option>
+      <option value="">Cargando...</option>
     </select>
 
     <label>Grupo (opcional)</label>
-    <input id="grupo" placeholder="Ej: 5° A">
-  </div>
+    <input type="text" id="grupo" placeholder="Ejemplo: 5° A">
 
-  <div class="section">
-    <h3>💪 Fortalezas del Docente</h3>
+    <label>Fortalezas del Docente</label>
     <textarea id="fortalezas" placeholder="Describe las principales fortalezas observadas..."></textarea>
 
-    <label style="margin-top: 15px;">⚠️ Aspectos a mejorar</label>
+    <label>Aspectos a Mejorar</label>
     <textarea id="mejoras" placeholder="Describe los aspectos que el docente puede mejorar..."></textarea>
 
-    <label>📝 Información adicional</label>
-    <textarea id="infoExtra" placeholder="Cualquier contexto adicional relevante para el informe..."></textarea>
+    <label>Información Adicional</label>
+    <textarea id="infoExtra" placeholder="Cualquier contexto adicional relevante..."></textarea>
+
+    <button id="btnGenerar" class="primary">Generar Informe con IA</button>
+
+    <div class="alert" id="alertGenerar"></div>
+
+    <!-- Historial de Informes -->
+    <div class="history-section" id="historySection" style="display: none;">
+      <div class="history-title">Informes Generados en esta Sesión</div>
+      <div id="reportsList"></div>
+    </div>
+
   </div>
-
-  <button id="generar" class="primary">✨ Generar Informe con IA</button>
-
-  <p id="estado" class="status"></p>
 </div>
 
 <script>
-// Verificar estado de API al cargar
+// Estado global
+let reportsHistory = [];
+
+// Inicialización
 window.onload = function() {
   verificarEstadoApi();
+  verificarEstadoCarpeta();
   cargarDocentes();
+  setupCollapsible();
+  cargarHistorialLocal();
 };
 
-// Funciones de API Key
+// Collapsible functionality
+function setupCollapsible() {
+  const header = document.getElementById('configHeader');
+  const content = document.getElementById('configContent');
+
+  header.addEventListener('click', function() {
+    this.classList.toggle('active');
+    content.classList.toggle('active');
+  });
+}
+
+// Verificar estado de API
 function verificarEstadoApi() {
   google.script.run
     .withSuccessHandler(function(result) {
-      const statusEl = document.getElementById("apiStatus");
+      const badge = document.getElementById('apiStatus');
       if (result.configurada) {
-        statusEl.textContent = "✅ Configurada " + (result.keyParcial || "");
-        statusEl.className = "api-status configured";
+        badge.textContent = 'Configurada';
+        badge.className = 'status-badge success';
       } else {
-        statusEl.textContent = "❌ No configurada";
-        statusEl.className = "api-status not-configured";
+        badge.textContent = 'No configurada';
+        badge.className = 'status-badge error';
       }
     })
     .withFailureHandler(function(err) {
-      mostrarEstado("estadoApi", "Error al verificar API: " + err.message, "error");
+      console.error('Error al verificar API:', err);
     })
     .verificarApiKey();
 }
 
-function mostrarEstado(elementId, mensaje, tipo) {
-  const el = document.getElementById(elementId);
-  el.textContent = mensaje;
-  el.className = "status " + tipo;
+// Verificar estado de carpeta
+function verificarEstadoCarpeta() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      const badge = document.getElementById('carpetaStatus');
+      if (result.configurada) {
+        badge.textContent = result.nombre;
+        badge.className = 'status-badge success';
+      } else {
+        badge.textContent = 'No configurada';
+        badge.className = 'status-badge error';
+      }
+    })
+    .withFailureHandler(function(err) {
+      console.error('Error al verificar carpeta:', err);
+    })
+    .verificarCarpeta();
+}
+
+// Mostrar alert
+function showAlert(elementId, message, type) {
+  const alert = document.getElementById(elementId);
+  alert.textContent = message;
+  alert.className = 'alert ' + type + ' show';
   setTimeout(() => {
-    el.className = "status";
+    alert.classList.remove('show');
   }, 5000);
 }
 
-document.getElementById("btnGuardarApi").onclick = function() {
-  const apiKey = document.getElementById("apiKey").value.trim();
-  const modelo = document.getElementById("modeloIA").value;
+// Guardar API Key
+document.getElementById('btnGuardarApi').addEventListener('click', function() {
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const modelo = document.getElementById('modeloIA').value;
 
   if (!apiKey) {
-    mostrarEstado("estadoApi", "Por favor ingresa una API Key", "error");
+    showAlert('alertApi', 'Por favor ingresa una API Key', 'error');
     return;
   }
 
-  mostrarEstado("estadoApi", "Guardando configuración...", "info");
+  this.disabled = true;
+  showAlert('alertApi', 'Guardando configuración...', 'info');
 
-  // Guardar API Key
   google.script.run
-    .withSuccessHandler(function(result) {
-      // Luego guardar modelo
+    .withSuccessHandler(function() {
       google.script.run
-        .withSuccessHandler(function(result2) {
-          mostrarEstado("estadoApi", "✅ Configuración guardada correctamente", "success");
-          document.getElementById("apiKey").value = "";
+        .withSuccessHandler(function() {
+          showAlert('alertApi', 'Configuración guardada correctamente', 'success');
+          document.getElementById('apiKey').value = '';
           verificarEstadoApi();
+          document.getElementById('btnGuardarApi').disabled = false;
         })
         .withFailureHandler(function(err) {
-          mostrarEstado("estadoApi", "Error al guardar modelo: " + err.message, "error");
+          showAlert('alertApi', 'Error: ' + err.message, 'error');
+          document.getElementById('btnGuardarApi').disabled = false;
         })
         .guardarModelo(modelo);
     })
     .withFailureHandler(function(err) {
-      mostrarEstado("estadoApi", "Error: " + err.message, "error");
+      showAlert('alertApi', 'Error: ' + err.message, 'error');
+      document.getElementById('btnGuardarApi').disabled = false;
     })
     .guardarApiKey(apiKey);
-};
+});
 
-document.getElementById("btnProbarApi").onclick = function() {
-  mostrarEstado("estadoApi", "Probando conexión...", "info");
+// Probar conexión
+document.getElementById('btnProbarApi').addEventListener('click', function() {
+  this.disabled = true;
+  showAlert('alertApi', 'Probando conexión...', 'info');
 
   google.script.run
     .withSuccessHandler(function(result) {
-      mostrarEstado("estadoApi", "✅ " + result.message, "success");
+      showAlert('alertApi', result.message, 'success');
+      document.getElementById('btnProbarApi').disabled = false;
     })
     .withFailureHandler(function(err) {
-      mostrarEstado("estadoApi", "❌ " + err.message, "error");
+      showAlert('alertApi', err.message, 'error');
+      document.getElementById('btnProbarApi').disabled = false;
     })
     .probarConexionGemini();
-};
+});
+
+// Guardar carpeta
+document.getElementById('btnGuardarCarpeta').addEventListener('click', function() {
+  const carpeta = document.getElementById('carpetaDrive').value.trim();
+
+  if (!carpeta) {
+    showAlert('alertCarpeta', 'Por favor ingresa una URL o ID de carpeta', 'error');
+    return;
+  }
+
+  this.disabled = true;
+  showAlert('alertCarpeta', 'Verificando carpeta...', 'info');
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      showAlert('alertCarpeta', result.message, 'success');
+      document.getElementById('carpetaDrive').value = '';
+      verificarEstadoCarpeta();
+      document.getElementById('btnGuardarCarpeta').disabled = false;
+    })
+    .withFailureHandler(function(err) {
+      showAlert('alertCarpeta', err.message, 'error');
+      document.getElementById('btnGuardarCarpeta').disabled = false;
+    })
+    .guardarCarpeta(carpeta);
+});
 
 // Cargar docentes
 function cargarDocentes() {
-  const nivel = document.getElementById("nivel").value;
-  const sel = document.getElementById("docente");
-  sel.innerHTML = "<option>Cargando...</option>";
+  const nivel = document.getElementById('nivel').value;
+  const select = document.getElementById('docente');
+  select.innerHTML = '<option value="">Cargando...</option>';
 
   google.script.run
     .withSuccessHandler(function(lista) {
-      sel.innerHTML = "<option value=''>Seleccionar...</option>";
-      lista.forEach(d => {
-        const opt = document.createElement("option");
-        opt.value = d.nombre;
-        opt.textContent = d.nombre + " — " + d.clase;
-        sel.appendChild(opt);
+      select.innerHTML = '<option value="">Seleccionar...</option>';
+      lista.forEach(function(d) {
+        const option = document.createElement('option');
+        option.value = d.nombre;
+        option.textContent = d.nombre + ' — ' + d.clase;
+        select.appendChild(option);
       });
     })
     .withFailureHandler(function(err) {
-      sel.innerHTML = "<option value=''>Error al cargar</option>";
-      mostrarEstado("estado", "Error al cargar docentes: " + err.message, "error");
+      select.innerHTML = '<option value="">Error al cargar</option>';
+      showAlert('alertGenerar', 'Error al cargar docentes: ' + err.message, 'error');
     })
     .getDocentes(nivel);
 }
 
-document.getElementById("nivel").addEventListener("change", cargarDocentes);
+document.getElementById('nivel').addEventListener('change', cargarDocentes);
 
 // Generar informe
-document.getElementById("generar").onclick = function() {
-  const nombreDocente = document.getElementById("docente").value;
+document.getElementById('btnGenerar').addEventListener('click', function() {
+  const nombreDocente = document.getElementById('docente').value;
 
   if (!nombreDocente) {
-    mostrarEstado("estado", "Por favor selecciona un docente", "error");
+    showAlert('alertGenerar', 'Por favor selecciona un docente', 'error');
     return;
   }
 
   const params = {
-    nivel: document.getElementById("nivel").value,
+    nivel: document.getElementById('nivel').value,
     nombreDocente: nombreDocente,
-    grupo: document.getElementById("grupo").value,
-    fortalezas: document.getElementById("fortalezas").value,
-    mejoras: document.getElementById("mejoras").value,
-    infoExtra: document.getElementById("infoExtra").value
+    grupo: document.getElementById('grupo').value,
+    fortalezas: document.getElementById('fortalezas').value,
+    mejoras: document.getElementById('mejoras').value,
+    infoExtra: document.getElementById('infoExtra').value
   };
 
-  const btnGenerar = document.getElementById("generar");
-  btnGenerar.disabled = true;
-  btnGenerar.innerHTML = '⏳ Generando con IA<span class="loading"></span>';
+  const btn = document.getElementById('btnGenerar');
+  btn.disabled = true;
+  btn.innerHTML = 'Generando con IA<span class="spinner"></span>';
 
-  const estadoEl = document.getElementById("estado");
-  estadoEl.className = "status info";
-  estadoEl.textContent = "🤖 La IA está generando las observaciones personalizadas...";
+  showAlert('alertGenerar', 'La IA está generando las observaciones personalizadas...', 'info');
 
   google.script.run
-    .withSuccessHandler(function(res) {
-      btnGenerar.disabled = false;
-      btnGenerar.innerHTML = "✨ Generar Informe con IA";
+    .withSuccessHandler(function(result) {
+      btn.disabled = false;
+      btn.innerHTML = 'Generar Informe con IA';
 
-      estadoEl.className = "status success";
-      estadoEl.innerHTML = `
-        ✅ <strong>¡Informe generado exitosamente!</strong><br>
-        <a href="${res.url}" target="_blank" style="color: #137333; font-weight: bold;">
-          📄 Abrir informe en Google Docs
-        </a>
-      `;
+      showAlert('alertGenerar', 'Informe generado exitosamente', 'success');
+
+      // Agregar al historial
+      agregarAlHistorial(result);
+
+      // Limpiar campos opcionales
+      document.getElementById('fortalezas').value = '';
+      document.getElementById('mejoras').value = '';
+      document.getElementById('infoExtra').value = '';
+      document.getElementById('grupo').value = '';
     })
     .withFailureHandler(function(err) {
-      btnGenerar.disabled = false;
-      btnGenerar.innerHTML = "✨ Generar Informe con IA";
-
-      estadoEl.className = "status error";
-      estadoEl.innerHTML = `
-        <strong>❌ Error:</strong> ${err.message}<br>
-        <small>Si el error es sobre API Key, configúrala en la sección de arriba.</small>
-      `;
+      btn.disabled = false;
+      btn.innerHTML = 'Generar Informe con IA';
+      showAlert('alertGenerar', 'Error: ' + err.message, 'error');
     })
     .generarInforme(params);
-};
+});
+
+// Gestión de historial
+function agregarAlHistorial(report) {
+  reportsHistory.unshift(report);
+  guardarHistorialLocal();
+  renderizarHistorial();
+}
+
+function renderizarHistorial() {
+  const section = document.getElementById('historySection');
+  const list = document.getElementById('reportsList');
+
+  if (reportsHistory.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+
+  section.style.display = 'block';
+  list.innerHTML = '';
+
+  reportsHistory.forEach(function(report) {
+    const item = document.createElement('div');
+    item.className = 'report-item';
+    item.innerHTML = `
+      <div class="report-info">
+        <div class="report-title">${report.titulo}</div>
+        <div class="report-meta">${report.nivel} | ${report.fecha}</div>
+      </div>
+      <a href="${report.url}" target="_blank" class="report-link">Abrir</a>
+    `;
+    list.appendChild(item);
+  });
+}
+
+// Persistencia local (sessionStorage)
+function guardarHistorialLocal() {
+  try {
+    sessionStorage.setItem('reportsHistory', JSON.stringify(reportsHistory));
+  } catch (e) {
+    console.error('Error al guardar historial:', e);
+  }
+}
+
+function cargarHistorialLocal() {
+  try {
+    const stored = sessionStorage.getItem('reportsHistory');
+    if (stored) {
+      reportsHistory = JSON.parse(stored);
+      renderizarHistorial();
+    }
+  } catch (e) {
+    console.error('Error al cargar historial:', e);
+  }
+}
 </script>
 
 </body>
