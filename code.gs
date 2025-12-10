@@ -266,7 +266,7 @@ function probarConexionGemini() {
     throw new Error("No se ha configurado la API Key de Gemini");
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [{
@@ -306,7 +306,7 @@ function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, 
   }
 
   // Usar modelo más reciente y eficiente
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
   // Obtener los ítems según el nivel
   const items = nivel === "inicial" ? ITEMS_INICIAL : ITEMS_PRIMARIA;
