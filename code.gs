@@ -258,6 +258,43 @@ function verificarApiKey() {
   };
 }
 
+// Listar modelos disponibles
+function listarModelosDisponibles() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+
+  if (!apiKey) {
+    throw new Error("No se ha configurado la API Key de Gemini");
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+
+  try {
+    const resp = UrlFetchApp.fetch(url, {
+      method: "get",
+      muteHttpExceptions: true
+    });
+
+    const statusCode = resp.getResponseCode();
+
+    if (statusCode === 200) {
+      const data = JSON.parse(resp.getContentText());
+      const modelos = data.models
+        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+        .map(m => m.name.replace("models/", ""))
+        .join(", ");
+
+      return {
+        success: true,
+        message: "Modelos disponibles: " + modelos
+      };
+    } else {
+      throw new Error(`Error ${statusCode}: ${resp.getContentText().substring(0, 200)}`);
+    }
+  } catch (e) {
+    throw new Error("Error al listar modelos: " + e.message);
+  }
+}
+
 // Probar conexión con Gemini
 function probarConexionGemini() {
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
@@ -266,7 +303,7 @@ function probarConexionGemini() {
     throw new Error("No se ha configurado la API Key de Gemini");
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [{
@@ -306,7 +343,7 @@ function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, 
   }
 
   // Usar modelo más reciente y eficiente
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${apiKey}`;
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${apiKey}`;
 
   // Obtener los ítems según el nivel
   const items = nivel === "inicial" ? ITEMS_INICIAL : ITEMS_PRIMARIA;

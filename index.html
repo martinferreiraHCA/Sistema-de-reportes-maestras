@@ -151,6 +151,7 @@
     <input type="password" id="apiKey" placeholder="Ingresa tu API Key de Gemini">
     <div style="margin-top: 8px;">
       <button class="secondary" id="btnGuardarApi">Guardar API Key</button>
+      <button class="secondary" id="btnListarModelos">Listar Modelos Disponibles</button>
       <button class="secondary" id="btnProbarApi">Probar Conexión</button>
     </div>
     <p id="estadoApi" class="status"></p>
@@ -249,6 +250,21 @@ document.getElementById("btnGuardarApi").onclick = function() {
       mostrarEstado("estadoApi", "Error: " + err.message, "error");
     })
     .guardarApiKey(apiKey);
+};
+
+document.getElementById("btnListarModelos").onclick = function() {
+  mostrarEstado("estadoApi", "Obteniendo lista de modelos...", "info");
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      const el = document.getElementById("estadoApi");
+      el.className = "status success";
+      el.textContent = result.message;
+    })
+    .withFailureHandler(function(err) {
+      mostrarEstado("estadoApi", "❌ " + err.message, "error");
+    })
+    .listarModelosDisponibles();
 };
 
 document.getElementById("btnProbarApi").onclick = function() {
