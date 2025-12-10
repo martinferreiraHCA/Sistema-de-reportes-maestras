@@ -149,9 +149,21 @@
     </p>
     <label>API Key de Gemini</label>
     <input type="password" id="apiKey" placeholder="Ingresa tu API Key de Gemini">
+
+    <label style="margin-top: 15px;">Modelo de IA</label>
+    <select id="modeloIA">
+      <option value="gemini-2.5-flash">Gemini 2.5 Flash ⚡ (Recomendado - Rápido y eficiente)</option>
+      <option value="gemini-2.5-pro">Gemini 2.5 Pro 🏆 (Mejor calidad, más lento)</option>
+      <option value="gemini-flash-latest">Gemini Flash Latest (Versión estable más reciente)</option>
+      <option value="gemini-pro-latest">Gemini Pro Latest (Máxima calidad estable)</option>
+      <option value="gemini-2.0-flash">Gemini 2.0 Flash (Versión anterior rápida)</option>
+    </select>
+    <p style="font-size: 11px; color: #666; margin: 4px 0;">
+      💡 <strong>Flash</strong> = Rápido y económico | <strong>Pro</strong> = Mayor calidad y razonamiento
+    </p>
+
     <div style="margin-top: 8px;">
-      <button class="secondary" id="btnGuardarApi">Guardar API Key</button>
-      <button class="secondary" id="btnListarModelos">Listar Modelos Disponibles</button>
+      <button class="secondary" id="btnGuardarApi">Guardar Configuración</button>
       <button class="secondary" id="btnProbarApi">Probar Conexión</button>
     </div>
     <p id="estadoApi" class="status"></p>
@@ -233,38 +245,34 @@ function mostrarEstado(elementId, mensaje, tipo) {
 
 document.getElementById("btnGuardarApi").onclick = function() {
   const apiKey = document.getElementById("apiKey").value.trim();
+  const modelo = document.getElementById("modeloIA").value;
+
   if (!apiKey) {
     mostrarEstado("estadoApi", "Por favor ingresa una API Key", "error");
     return;
   }
 
-  mostrarEstado("estadoApi", "Guardando API Key...", "info");
+  mostrarEstado("estadoApi", "Guardando configuración...", "info");
 
+  // Guardar API Key
   google.script.run
     .withSuccessHandler(function(result) {
-      mostrarEstado("estadoApi", result.message, "success");
-      document.getElementById("apiKey").value = "";
-      verificarEstadoApi();
+      // Luego guardar modelo
+      google.script.run
+        .withSuccessHandler(function(result2) {
+          mostrarEstado("estadoApi", "✅ Configuración guardada correctamente", "success");
+          document.getElementById("apiKey").value = "";
+          verificarEstadoApi();
+        })
+        .withFailureHandler(function(err) {
+          mostrarEstado("estadoApi", "Error al guardar modelo: " + err.message, "error");
+        })
+        .guardarModelo(modelo);
     })
     .withFailureHandler(function(err) {
       mostrarEstado("estadoApi", "Error: " + err.message, "error");
     })
     .guardarApiKey(apiKey);
-};
-
-document.getElementById("btnListarModelos").onclick = function() {
-  mostrarEstado("estadoApi", "Obteniendo lista de modelos...", "info");
-
-  google.script.run
-    .withSuccessHandler(function(result) {
-      const el = document.getElementById("estadoApi");
-      el.className = "status success";
-      el.textContent = result.message;
-    })
-    .withFailureHandler(function(err) {
-      mostrarEstado("estadoApi", "❌ " + err.message, "error");
-    })
-    .listarModelosDisponibles();
 };
 
 document.getElementById("btnProbarApi").onclick = function() {

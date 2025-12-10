@@ -258,6 +258,22 @@ function verificarApiKey() {
   };
 }
 
+// Guardar modelo seleccionado
+function guardarModelo(modelo) {
+  try {
+    PropertiesService.getScriptProperties().setProperty("GEMINI_MODEL", modelo);
+    return { success: true, message: "Modelo guardado: " + modelo };
+  } catch (e) {
+    throw new Error("Error al guardar modelo: " + e.message);
+  }
+}
+
+// Obtener modelo seleccionado (por defecto gemini-2.5-flash)
+function obtenerModelo() {
+  const modelo = PropertiesService.getScriptProperties().getProperty("GEMINI_MODEL");
+  return modelo || "gemini-2.5-flash";
+}
+
 // Listar modelos disponibles
 function listarModelosDisponibles() {
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
@@ -303,7 +319,8 @@ function probarConexionGemini() {
     throw new Error("No se ha configurado la API Key de Gemini");
   }
 
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${apiKey}`;
+  const modelo = obtenerModelo();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
 
   const payload = {
     contents: [{
@@ -342,8 +359,9 @@ function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, 
     throw new Error("No se ha configurado la API Key de Gemini. Configure GEMINI_API_KEY en las propiedades del script.");
   }
 
-  // Usar modelo más reciente y eficiente
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.0-pro:generateContent?key=${apiKey}`;
+  // Usar modelo seleccionado por el usuario
+  const modelo = obtenerModelo();
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
 
   // Obtener los ítems según el nivel
   const items = nivel === "inicial" ? ITEMS_INICIAL : ITEMS_PRIMARIA;
