@@ -546,21 +546,23 @@ IMPORTANTE: Debes generar EXACTAMENTE 8 observaciones numeradas del 1 al 8. Cada
       cleanText = cleanText.trim();
     }
 
-    // Parsear usando formato numerado (1. 2. 3. etc.)
-    const observaciones = [];
+    Logger.log("Texto recibido de la IA (primeros 500 caracteres):");
+    Logger.log(cleanText.substring(0, 500));
 
-    // Intentar extraer observaciones numeradas del 1 al 8
+    // Parsear usando formato numerado - MÚLTIPLES ENFOQUES
+    let observaciones = [];
+
+    // ENFOQUE 1: Formato "1." con captura entre números
     for (let i = 1; i <= 8; i++) {
-      // Regex para capturar desde "N." hasta el siguiente número o final del texto
       const nextNum = i + 1;
       let regex;
 
       if (i < 8) {
-        // Capturar desde "N." hasta "N+1."
-        regex = new RegExp(`${i}\\.\\s*([\\s\\S]*?)(?=\\n?${nextNum}\\.\\s)`, 'i');
+        // Capturar desde "N." hasta "N+1." - más flexible
+        regex = new RegExp(`(?:^|\\n)\\s*${i}\\.\\s+([\\s\\S]*?)(?=\\n\\s*${nextNum}\\.\\s)`, 'im');
       } else {
-        // Para la última observación, capturar hasta el final
-        regex = new RegExp(`${i}\\.\\s*([\\s\\S]*)$`, 'i');
+        // Para la última observación
+        regex = new RegExp(`(?:^|\\n)\\s*${i}\\.\\s+([\\s\\S]*)$`, 'im');
       }
 
       const match = cleanText.match(regex);
@@ -569,42 +571,97 @@ IMPORTANTE: Debes generar EXACTAMENTE 8 observaciones numeradas del 1 al 8. Cada
       }
     }
 
-    // Validar que tengamos exactamente 8 observaciones
-    if (observaciones.length !== 8) {
-      Logger.log("Texto completo recibido: " + cleanText);
-      Logger.log(`Se extrajeron ${observaciones.length} observaciones`);
+    Logger.log(`Enfoque 1: Se extrajeron ${observaciones.length} observaciones`);
 
-      // Intentar enfoque alternativo: split por saltos de línea con números
+    // ENFOQUE 2: Si el enfoque 1 falla, buscar línea por línea
+    if (observaciones.length !== 8) {
+      observaciones = [];
       const lines = cleanText.split(/\n+/);
-      const altObservaciones = [];
 
       for (let i = 1; i <= 8; i++) {
-        const pattern = new RegExp(`^${i}\\.\\s*(.+)`, 'i');
+        // Buscar variaciones: "1.", "1)", "**1.**", etc.
+        const patterns = [
+          new RegExp(`^\\s*\\*{0,2}${i}\\.\\*{0,2}\\s+(.+)`, 'i'),    // 1. o **1.**
+          new RegExp(`^\\s*${i}\\)\\s+(.+)`, 'i'),                     // 1)
+          new RegExp(`^\\s*${i}\\s+-\\s+(.+)`, 'i'),                   // 1 -
+          new RegExp(`^\\s*Ítem\\s+${i}[:\\.]\\s+(.+)`, 'i'),          // Ítem 1:
+          new RegExp(`^\\s*Observación\\s+${i}[:\\.]\\s+(.+)`, 'i')    // Observación 1:
+        ];
+
         for (const line of lines) {
-          const match = line.match(pattern);
-          if (match && match[1]) {
-            altObservaciones.push(match[1].trim());
-            break;
+          let found = false;
+          for (const pattern of patterns) {
+            const match = line.match(pattern);
+            if (match && match[1]) {
+              observaciones.push(match[1].trim());
+              found = true;
+              break;
+            }
+          }
+          if (found) break;
+        }
+      }
+
+      Logger.log(`Enfoque 2: Se extrajeron ${observaciones.length} observaciones`);
+    }
+
+    // ENFOQUE 3: Si aún falla, buscar cualquier lista numerada
+    if (observaciones.length !== 8) {
+      observaciones = [];
+
+      // Buscar todas las líneas que empiezan con número seguido de . o )
+      const numberedLines = cleanText.match(/(?:^|\n)\s*\d+[\.)]\s+[^\n]+/gm);
+
+      if (numberedLines && numberedLines.length >= 8) {
+        for (let i = 0; i < 8; i++) {
+          const cleaned = numberedLines[i].replace(/^\s*\d+[\.)]\s+/, '').trim();
+          if (cleaned) {
+            observaciones.push(cleaned);
           }
         }
       }
 
-      if (altObservaciones.length === 8) {
-        Logger.log("Usando enfoque alternativo de parsing");
-        return altObservaciones;
-      }
+      Logger.log(`Enfoque 3: Se extrajeron ${observaciones.length} observaciones`);
+    }
 
-      throw new Error(`Se esperaban 8 observaciones, pero se recibieron ${observaciones.length}. Revisa los logs para más detalles.`);
+    // ENFOQUE 4: Último recurso - dividir por párrafos
+    if (observaciones.length !== 8) {
+      observaciones = [];
+
+      // Dividir por párrafos (doble salto de línea o más)
+      const paragraphs = cleanText
+        .split(/\n\s*\n+/)
+        .map(p => p.trim())
+        .filter(p => p.length > 50); // Solo párrafos con contenido sustancial
+
+      if (paragraphs.length === 8) {
+        // Remover números al inicio si los hay
+        observaciones = paragraphs.map(p => p.replace(/^\s*\d+[\.)]\s*/, '').trim());
+        Logger.log("Enfoque 4: Usando división por párrafos");
+      }
+    }
+
+    // Validar resultado final
+    if (observaciones.length !== 8) {
+      Logger.log("TEXTO COMPLETO RECIBIDO:");
+      Logger.log(cleanText);
+      Logger.log(`Total de observaciones extraídas: ${observaciones.length}`);
+
+      throw new Error(`No se pudieron extraer 8 observaciones del texto. Se encontraron ${observaciones.length}. Verifica los logs del script (Ver > Registros) para ver el texto completo generado por la IA.`);
     }
 
     // Validar que todas las observaciones tengan contenido suficiente
-    const observacionesValidas = observaciones.every(obs => obs.length > 20);
+    const observacionesValidas = observaciones.every(obs => obs.length > 15);
 
     if (!observacionesValidas) {
+      Logger.log("Observaciones extraídas:");
+      observaciones.forEach((obs, i) => Logger.log(`${i+1}: ${obs.substring(0, 100)}...`));
       throw new Error("Algunas observaciones están vacías o son muy cortas");
     }
 
-    Logger.log("Observaciones generadas exitosamente");
+    Logger.log("✓ Observaciones generadas exitosamente");
+    observaciones.forEach((obs, i) => Logger.log(`${i+1}: ${obs.substring(0, 80)}...`));
+
     return observaciones;
 
   } catch (e) {
