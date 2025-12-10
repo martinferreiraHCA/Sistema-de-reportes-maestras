@@ -4,82 +4,341 @@
   <meta charset="UTF-8">
   <base target="_top">
   <style>
-    body { font-family: Arial; padding: 20px; }
-    label { font-weight: bold; margin-top: 10px; display: block; }
-    select, textarea, input { width: 100%; padding: 6px; margin-top: 4px; }
-    textarea { min-height: 80px; }
-    button { margin-top: 15px; padding: 10px 20px; cursor: pointer; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      padding: 20px;
+      max-width: 800px;
+      margin: 0 auto;
+      background: #f5f5f5;
+    }
+    .container {
+      background: white;
+      padding: 25px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    h2 {
+      color: #1a73e8;
+      border-bottom: 2px solid #1a73e8;
+      padding-bottom: 10px;
+    }
+    h3 {
+      color: #5f6368;
+      margin-top: 20px;
+      font-size: 1.1em;
+    }
+    label {
+      font-weight: bold;
+      margin-top: 10px;
+      display: block;
+      color: #333;
+    }
+    select, textarea, input {
+      width: 100%;
+      padding: 8px;
+      margin-top: 4px;
+      border: 1px solid #dadce0;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    textarea {
+      min-height: 80px;
+      font-family: inherit;
+      resize: vertical;
+    }
+    button {
+      margin-top: 15px;
+      padding: 10px 20px;
+      cursor: pointer;
+      border: none;
+      border-radius: 4px;
+      font-size: 14px;
+      font-weight: 500;
+      transition: all 0.3s;
+    }
+    button.primary {
+      background: #1a73e8;
+      color: white;
+    }
+    button.primary:hover {
+      background: #1557b0;
+    }
+    button.secondary {
+      background: #f1f3f4;
+      color: #5f6368;
+    }
+    button.secondary:hover {
+      background: #e8eaed;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .status {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 4px;
+      display: none;
+    }
+    .status.success {
+      background: #e6f4ea;
+      color: #137333;
+      display: block;
+    }
+    .status.error {
+      background: #fce8e6;
+      color: #c5221f;
+      display: block;
+    }
+    .status.info {
+      background: #e8f0fe;
+      color: #1967d2;
+      display: block;
+    }
+    .api-config {
+      background: #f8f9fa;
+      padding: 15px;
+      border-radius: 4px;
+      margin-bottom: 20px;
+    }
+    .api-status {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+    .api-status.configured {
+      background: #e6f4ea;
+      color: #137333;
+    }
+    .api-status.not-configured {
+      background: #fce8e6;
+      color: #c5221f;
+    }
+    .loading {
+      display: inline-block;
+      border: 2px solid #f3f3f3;
+      border-top: 2px solid #1a73e8;
+      border-radius: 50%;
+      width: 16px;
+      height: 16px;
+      animation: spin 1s linear infinite;
+      margin-left: 10px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .section {
+      margin-bottom: 20px;
+    }
   </style>
 </head>
 <body>
 
-<h2>Generador de Informe de Actuación Docente</h2>
+<div class="container">
+  <h2>🎓 Generador de Informe de Actuación Docente</h2>
 
-<label>Nivel</label>
-<select id="nivel">
-  <option value="inicial">Educación Inicial</option>
-  <option value="primaria">Primaria</option>
-</select>
+  <!-- Configuración de API -->
+  <div class="api-config section">
+    <h3>⚙️ Configuración de Google AI (Gemini)</h3>
+    <p style="font-size: 14px; color: #5f6368; margin: 5px 0;">
+      Estado: <span id="apiStatus" class="api-status not-configured">No configurada</span>
+    </p>
+    <label>API Key de Gemini</label>
+    <input type="password" id="apiKey" placeholder="Ingresa tu API Key de Gemini">
+    <div style="margin-top: 8px;">
+      <button class="secondary" id="btnGuardarApi">Guardar API Key</button>
+      <button class="secondary" id="btnProbarApi">Probar Conexión</button>
+    </div>
+    <p id="estadoApi" class="status"></p>
+    <p style="font-size: 12px; color: #5f6368; margin-top: 10px;">
+      📝 Obtén tu API Key gratis en: <a href="https://makersuite.google.com/app/apikey" target="_blank">Google AI Studio</a>
+    </p>
+  </div>
 
-<label>Docente</label>
-<select id="docente">
-  <option value="">Selecciona un nivel...</option>
-</select>
+  <hr style="border: none; border-top: 1px solid #dadce0; margin: 20px 0;">
 
-<label>Grupo (opcional)</label>
-<input id="grupo">
+  <h3>📋 Datos del Informe</h3>
 
-<label>Fortalezas</label>
-<textarea id="fortalezas"></textarea>
+  <div class="section">
+    <label>Nivel</label>
+    <select id="nivel">
+      <option value="inicial">Educación Inicial</option>
+      <option value="primaria">Primaria</option>
+    </select>
 
-<label>Aspectos a mejorar</label>
-<textarea id="mejoras"></textarea>
+    <label>Docente</label>
+    <select id="docente">
+      <option value="">Selecciona un nivel...</option>
+    </select>
 
-<label>Información adicional</label>
-<textarea id="infoExtra"></textarea>
+    <label>Grupo (opcional)</label>
+    <input id="grupo" placeholder="Ej: 5° A">
+  </div>
 
-<button id="generar">Generar Informe</button>
+  <div class="section">
+    <h3>💪 Fortalezas del Docente</h3>
+    <textarea id="fortalezas" placeholder="Describe las principales fortalezas observadas..."></textarea>
 
-<p id="estado"></p>
+    <label style="margin-top: 15px;">⚠️ Aspectos a mejorar</label>
+    <textarea id="mejoras" placeholder="Describe los aspectos que el docente puede mejorar..."></textarea>
+
+    <label>📝 Información adicional</label>
+    <textarea id="infoExtra" placeholder="Cualquier contexto adicional relevante para el informe..."></textarea>
+  </div>
+
+  <button id="generar" class="primary">✨ Generar Informe con IA</button>
+
+  <p id="estado" class="status"></p>
+</div>
 
 <script>
-function cargarDocentes(){
+// Verificar estado de API al cargar
+window.onload = function() {
+  verificarEstadoApi();
+  cargarDocentes();
+};
+
+// Funciones de API Key
+function verificarEstadoApi() {
+  google.script.run
+    .withSuccessHandler(function(result) {
+      const statusEl = document.getElementById("apiStatus");
+      if (result.configurada) {
+        statusEl.textContent = "✅ Configurada " + (result.keyParcial || "");
+        statusEl.className = "api-status configured";
+      } else {
+        statusEl.textContent = "❌ No configurada";
+        statusEl.className = "api-status not-configured";
+      }
+    })
+    .withFailureHandler(function(err) {
+      mostrarEstado("estadoApi", "Error al verificar API: " + err.message, "error");
+    })
+    .verificarApiKey();
+}
+
+function mostrarEstado(elementId, mensaje, tipo) {
+  const el = document.getElementById(elementId);
+  el.textContent = mensaje;
+  el.className = "status " + tipo;
+  setTimeout(() => {
+    el.className = "status";
+  }, 5000);
+}
+
+document.getElementById("btnGuardarApi").onclick = function() {
+  const apiKey = document.getElementById("apiKey").value.trim();
+  if (!apiKey) {
+    mostrarEstado("estadoApi", "Por favor ingresa una API Key", "error");
+    return;
+  }
+
+  mostrarEstado("estadoApi", "Guardando API Key...", "info");
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      mostrarEstado("estadoApi", result.message, "success");
+      document.getElementById("apiKey").value = "";
+      verificarEstadoApi();
+    })
+    .withFailureHandler(function(err) {
+      mostrarEstado("estadoApi", "Error: " + err.message, "error");
+    })
+    .guardarApiKey(apiKey);
+};
+
+document.getElementById("btnProbarApi").onclick = function() {
+  mostrarEstado("estadoApi", "Probando conexión...", "info");
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      mostrarEstado("estadoApi", "✅ " + result.message, "success");
+    })
+    .withFailureHandler(function(err) {
+      mostrarEstado("estadoApi", "❌ " + err.message, "error");
+    })
+    .probarConexionGemini();
+};
+
+// Cargar docentes
+function cargarDocentes() {
   const nivel = document.getElementById("nivel").value;
   const sel = document.getElementById("docente");
   sel.innerHTML = "<option>Cargando...</option>";
 
-  google.script.run.withSuccessHandler(function(lista){
-    sel.innerHTML = "<option value=''>Seleccionar...</option>";
-    lista.forEach(d=>{
-      const opt = document.createElement("option");
-      opt.value = d.nombre;
-      opt.textContent = d.nombre + " — " + d.clase;
-      sel.appendChild(opt);
-    });
-  }).getDocentes(nivel);
+  google.script.run
+    .withSuccessHandler(function(lista) {
+      sel.innerHTML = "<option value=''>Seleccionar...</option>";
+      lista.forEach(d => {
+        const opt = document.createElement("option");
+        opt.value = d.nombre;
+        opt.textContent = d.nombre + " — " + d.clase;
+        sel.appendChild(opt);
+      });
+    })
+    .withFailureHandler(function(err) {
+      sel.innerHTML = "<option value=''>Error al cargar</option>";
+      mostrarEstado("estado", "Error al cargar docentes: " + err.message, "error");
+    })
+    .getDocentes(nivel);
 }
 
 document.getElementById("nivel").addEventListener("change", cargarDocentes);
-cargarDocentes();
 
-document.getElementById("generar").onclick = function(){
+// Generar informe
+document.getElementById("generar").onclick = function() {
+  const nombreDocente = document.getElementById("docente").value;
+
+  if (!nombreDocente) {
+    mostrarEstado("estado", "Por favor selecciona un docente", "error");
+    return;
+  }
+
   const params = {
     nivel: document.getElementById("nivel").value,
-    nombreDocente: document.getElementById("docente").value,
+    nombreDocente: nombreDocente,
     grupo: document.getElementById("grupo").value,
     fortalezas: document.getElementById("fortalezas").value,
     mejoras: document.getElementById("mejoras").value,
     infoExtra: document.getElementById("infoExtra").value
   };
 
-  document.getElementById("estado").textContent = "Generando informe...";
+  const btnGenerar = document.getElementById("generar");
+  btnGenerar.disabled = true;
+  btnGenerar.innerHTML = '⏳ Generando con IA<span class="loading"></span>';
 
-  google.script.run.withSuccessHandler(function(res){
-    document.getElementById("estado").innerHTML =
-      `<a href="${res.url}" target="_blank">Abrir informe generado</a>`;
-  }).withFailureHandler(function(err){
-    document.getElementById("estado").textContent = "Error: " + err.message;
-  }).generarInforme(params);
+  const estadoEl = document.getElementById("estado");
+  estadoEl.className = "status info";
+  estadoEl.textContent = "🤖 La IA está generando las observaciones personalizadas...";
+
+  google.script.run
+    .withSuccessHandler(function(res) {
+      btnGenerar.disabled = false;
+      btnGenerar.innerHTML = "✨ Generar Informe con IA";
+
+      estadoEl.className = "status success";
+      estadoEl.innerHTML = `
+        ✅ <strong>¡Informe generado exitosamente!</strong><br>
+        <a href="${res.url}" target="_blank" style="color: #137333; font-weight: bold;">
+          📄 Abrir informe en Google Docs
+        </a>
+      `;
+    })
+    .withFailureHandler(function(err) {
+      btnGenerar.disabled = false;
+      btnGenerar.innerHTML = "✨ Generar Informe con IA";
+
+      estadoEl.className = "status error";
+      estadoEl.innerHTML = `
+        <strong>❌ Error:</strong> ${err.message}<br>
+        <small>Si el error es sobre API Key, configúrala en la sección de arriba.</small>
+      `;
+    })
+    .generarInforme(params);
 };
 </script>
 
