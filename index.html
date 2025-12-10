@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <base target="_top">
+  <style>
+    body { font-family: Arial; padding: 20px; }
+    label { font-weight: bold; margin-top: 10px; display: block; }
+    select, textarea, input { width: 100%; padding: 6px; margin-top: 4px; }
+    textarea { min-height: 80px; }
+    button { margin-top: 15px; padding: 10px 20px; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<h2>Generador de Informe de Actuación Docente</h2>
+
+<label>Nivel</label>
+<select id="nivel">
+  <option value="inicial">Educación Inicial</option>
+  <option value="primaria">Primaria</option>
+</select>
+
+<label>Docente</label>
+<select id="docente">
+  <option value="">Selecciona un nivel...</option>
+</select>
+
+<label>Grupo (opcional)</label>
+<input id="grupo">
+
+<label>Fortalezas</label>
+<textarea id="fortalezas"></textarea>
+
+<label>Aspectos a mejorar</label>
+<textarea id="mejoras"></textarea>
+
+<label>Información adicional</label>
+<textarea id="infoExtra"></textarea>
+
+<button id="generar">Generar Informe</button>
+
+<p id="estado"></p>
+
+<script>
+function cargarDocentes(){
+  const nivel = document.getElementById("nivel").value;
+  const sel = document.getElementById("docente");
+  sel.innerHTML = "<option>Cargando...</option>";
+
+  google.script.run.withSuccessHandler(function(lista){
+    sel.innerHTML = "<option value=''>Seleccionar...</option>";
+    lista.forEach(d=>{
+      const opt = document.createElement("option");
+      opt.value = d.nombre;
+      opt.textContent = d.nombre + " — " + d.clase;
+      sel.appendChild(opt);
+    });
+  }).getDocentes(nivel);
+}
+
+document.getElementById("nivel").addEventListener("change", cargarDocentes);
+cargarDocentes();
+
+document.getElementById("generar").onclick = function(){
+  const params = {
+    nivel: document.getElementById("nivel").value,
+    nombreDocente: document.getElementById("docente").value,
+    grupo: document.getElementById("grupo").value,
+    fortalezas: document.getElementById("fortalezas").value,
+    mejoras: document.getElementById("mejoras").value,
+    infoExtra: document.getElementById("infoExtra").value
+  };
+
+  document.getElementById("estado").textContent = "Generando informe...";
+
+  google.script.run.withSuccessHandler(function(res){
+    document.getElementById("estado").innerHTML =
+      `<a href="${res.url}" target="_blank">Abrir informe generado</a>`;
+  }).withFailureHandler(function(err){
+    document.getElementById("estado").textContent = "Error: " + err.message;
+  }).generarInforme(params);
+};
+</script>
+
+</body>
+</html>
