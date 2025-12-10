@@ -443,7 +443,7 @@ function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, 
   // Obtener los ítems según el nivel
   const items = nivel === "inicial" ? ITEMS_INICIAL : ITEMS_PRIMARIA;
 
-  // Prompt mejorado con formato delimitado (más robusto que JSON)
+  // Prompt con formato numerado (más natural para la IA)
   const prompt = `Eres un asistente especializado en educación que genera informes de actuación docente profesionales.
 
 CONTEXTO DEL DOCENTE:
@@ -474,28 +474,25 @@ Cada observación debe:
 - Usar un tono profesional y constructivo
 - Incluir ejemplos concretos cuando sea posible
 
-FORMATO DE RESPUESTA:
-Escribe cada observación separada por el marcador "###OBSERVACION###" de esta forma:
+FORMATO DE RESPUESTA (usar EXACTAMENTE este formato numerado):
 
-###OBSERVACION###
-Texto de la observación 1
-###OBSERVACION###
-Texto de la observación 2
-###OBSERVACION###
-Texto de la observación 3
-###OBSERVACION###
-Texto de la observación 4
-###OBSERVACION###
-Texto de la observación 5
-###OBSERVACION###
-Texto de la observación 6
-###OBSERVACION###
-Texto de la observación 7
-###OBSERVACION###
-Texto de la observación 8
-###OBSERVACION###
+1. [Observación para el ítem 1 aquí]
 
-IMPORTANTE: Usa exactamente el marcador ###OBSERVACION### entre cada observación.`;
+2. [Observación para el ítem 2 aquí]
+
+3. [Observación para el ítem 3 aquí]
+
+4. [Observación para el ítem 4 aquí]
+
+5. [Observación para el ítem 5 aquí]
+
+6. [Observación para el ítem 6 aquí]
+
+7. [Observación para el ítem 7 aquí]
+
+8. [Observación para el ítem 8 aquí]
+
+IMPORTANTE: Debes generar EXACTAMENTE 8 observaciones numeradas del 1 al 8. Cada número debe estar al inicio de línea seguido de un punto y espacio.`;
 
   const payload = {
     contents: [{
@@ -549,19 +546,54 @@ IMPORTANTE: Usa exactamente el marcador ###OBSERVACION### entre cada observació
       cleanText = cleanText.trim();
     }
 
-    // Parsear usando el delimitador ###OBSERVACION###
-    const delimiter = "###OBSERVACION###";
-    const parts = cleanText.split(delimiter);
+    // Parsear usando formato numerado (1. 2. 3. etc.)
+    const observaciones = [];
 
-    // Filtrar partes vacías y limpiar espacios
-    const observaciones = parts
-      .map(part => part.trim())
-      .filter(part => part.length > 0);
+    // Intentar extraer observaciones numeradas del 1 al 8
+    for (let i = 1; i <= 8; i++) {
+      // Regex para capturar desde "N." hasta el siguiente número o final del texto
+      const nextNum = i + 1;
+      let regex;
+
+      if (i < 8) {
+        // Capturar desde "N." hasta "N+1."
+        regex = new RegExp(`${i}\\.\\s*([\\s\\S]*?)(?=\\n?${nextNum}\\.\\s)`, 'i');
+      } else {
+        // Para la última observación, capturar hasta el final
+        regex = new RegExp(`${i}\\.\\s*([\\s\\S]*)$`, 'i');
+      }
+
+      const match = cleanText.match(regex);
+      if (match && match[1]) {
+        observaciones.push(match[1].trim());
+      }
+    }
 
     // Validar que tengamos exactamente 8 observaciones
     if (observaciones.length !== 8) {
-      Logger.log("Texto completo recibido: " + cleanText.substring(0, 1000));
-      Logger.log(`Se recibieron ${observaciones.length} observaciones`);
+      Logger.log("Texto completo recibido: " + cleanText);
+      Logger.log(`Se extrajeron ${observaciones.length} observaciones`);
+
+      // Intentar enfoque alternativo: split por saltos de línea con números
+      const lines = cleanText.split(/\n+/);
+      const altObservaciones = [];
+
+      for (let i = 1; i <= 8; i++) {
+        const pattern = new RegExp(`^${i}\\.\\s*(.+)`, 'i');
+        for (const line of lines) {
+          const match = line.match(pattern);
+          if (match && match[1]) {
+            altObservaciones.push(match[1].trim());
+            break;
+          }
+        }
+      }
+
+      if (altObservaciones.length === 8) {
+        Logger.log("Usando enfoque alternativo de parsing");
+        return altObservaciones;
+      }
+
       throw new Error(`Se esperaban 8 observaciones, pero se recibieron ${observaciones.length}. Revisa los logs para más detalles.`);
     }
 
