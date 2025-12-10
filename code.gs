@@ -232,82 +232,205 @@ function generarInforme(params) {
 }
 
 /*************************************************************
- * IA – GEMINI SOLO GENERA OBSERVACIONES
+ * CONFIGURACIÓN DE API KEY
+ *************************************************************/
+
+// Guardar API Key de Gemini
+function guardarApiKey(apiKey) {
+  if (!apiKey || apiKey.trim() === "") {
+    throw new Error("La API Key no puede estar vacía");
+  }
+
+  try {
+    PropertiesService.getScriptProperties().setProperty("GEMINI_API_KEY", apiKey.trim());
+    return { success: true, message: "API Key guardada correctamente" };
+  } catch (e) {
+    throw new Error("Error al guardar la API Key: " + e.message);
+  }
+}
+
+// Verificar si la API Key está configurada
+function verificarApiKey() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  return {
+    configurada: !!apiKey,
+    keyParcial: apiKey ? "..." + apiKey.slice(-8) : null
+  };
+}
+
+// Probar conexión con Gemini
+function probarConexionGemini() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+
+  if (!apiKey) {
+    throw new Error("No se ha configurado la API Key de Gemini");
+  }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
+
+  const payload = {
+    contents: [{
+      parts: [{ text: "Di 'Conexión exitosa' en una palabra." }]
+    }]
+  };
+
+  try {
+    const resp = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
+
+    const statusCode = resp.getResponseCode();
+
+    if (statusCode === 200) {
+      return { success: true, message: "Conexión exitosa con Gemini API" };
+    } else {
+      const error = resp.getContentText();
+      throw new Error(`Error ${statusCode}: ${error.substring(0, 200)}`);
+    }
+  } catch (e) {
+    throw new Error("Error al conectar con Gemini: " + e.message);
+  }
+}
+
+/*************************************************************
+ * IA – GEMINI GENERA OBSERVACIONES CONTEXTUALIZADAS
  *************************************************************/
 function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, infoExtra) {
   const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
 
-  // >>> MODELO CORRECTO PARA APPS SCRIPT <<<
-  const url = `https://generativelanguage.googleapis.com/v1/models/gemini-1.0-pro-latest:generateContent?key=${apiKey}`;
+  if (!apiKey) {
+    throw new Error("No se ha configurado la API Key de Gemini. Configure GEMINI_API_KEY en las propiedades del script.");
+  }
 
-  const prompt = `
-Genera exactamente 8 observaciones técnicas para un Informe de Actuación Docente.
-Una observación por cada ítem del informe.
+  // Usar modelo más reciente y eficiente
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`;
 
-Nivel: ${nivel}
-Docente: ${docente.nombre}
-Grupo: ${grupo || docente.clase}
+  // Obtener los ítems según el nivel
+  const items = nivel === "inicial" ? ITEMS_INICIAL : ITEMS_PRIMARIA;
 
-Fortalezas:
-${fortalezas}
+  // Prompt mejorado con contexto de cada ítem
+  const prompt = `Eres un asistente especializado en educación que genera informes de actuación docente profesionales.
 
-Aspectos a mejorar:
-${mejoras}
+CONTEXTO DEL DOCENTE:
+- Nombre: ${docente.nombre}
+- Nivel: ${nivel === "inicial" ? "Educación Inicial" : "Primaria"}
+- Grupo/Clase: ${grupo || docente.clase}
+- Carácter del cargo: ${docente.caracterCargo}
+- Antigüedad: ${docente.antiguedad}
 
-Información adicional:
-${infoExtra}
+FORTALEZAS OBSERVADAS:
+${fortalezas || "No se especificaron fortalezas particulares."}
 
-FORMATO OBLIGATORIO:
+ASPECTOS A MEJORAR:
+${mejoras || "No se especificaron aspectos a mejorar."}
+
+INFORMACIÓN ADICIONAL:
+${infoExtra || "No se proporcionó información adicional."}
+
+ÍTEMS DEL INFORME:
+${items.map((item, i) => `\n${i+1}. ${item}`).join('\n')}
+
+TAREA:
+Genera exactamente 8 observaciones profesionales y específicas, una por cada ítem listado arriba.
+Cada observación debe:
+- Relacionarse directamente con el ítem correspondiente
+- Integrar las fortalezas y aspectos a mejorar mencionados cuando sea relevante
+- Ser concisa pero informativa (2-4 oraciones)
+- Usar un tono profesional y constructivo
+- Incluir ejemplos concretos cuando sea posible
+
+FORMATO DE RESPUESTA (JSON estricto):
 {
- "observaciones": [
-   "texto 1",
-   "texto 2",
-   "texto 3",
-   "texto 4",
-   "texto 5",
-   "texto 6",
-   "texto 7",
-   "texto 8"
- ]
-}
-`;
+  "observaciones": [
+    "Observación para el ítem 1...",
+    "Observación para el ítem 2...",
+    "Observación para el ítem 3...",
+    "Observación para el ítem 4...",
+    "Observación para el ítem 5...",
+    "Observación para el ítem 6...",
+    "Observación para el ítem 7...",
+    "Observación para el ítem 8..."
+  ]
+}`;
 
   const payload = {
-    contents: [{ parts: [{ text: prompt }]}]
+    contents: [{
+      parts: [{ text: prompt }]
+    }],
+    generationConfig: {
+      temperature: 0.7,
+      topK: 40,
+      topP: 0.95,
+      maxOutputTokens: 2048,
+    }
   };
 
-  const resp = UrlFetchApp.fetch(url, {
-    method: "post",
-    contentType: "application/json",
-    payload: JSON.stringify(payload),
-    muteHttpExceptions: true
-  });
-
-  const raw = resp.getContentText();
-
-  // EXTRAER TEXTO
-  let out = "";
   try {
-    out = JSON.parse(raw).candidates?.[0]?.content?.parts?.[0]?.text || "";
-  } catch (e) {
-    throw new Error("No se pudo interpretar la respuesta: " + raw);
-  }
+    const resp = UrlFetchApp.fetch(url, {
+      method: "post",
+      contentType: "application/json",
+      payload: JSON.stringify(payload),
+      muteHttpExceptions: true
+    });
 
-  if (!out.trim()) {
-    throw new Error("La IA devolvió contenido vacío. Respuesta completa:\n" + raw);
-  }
+    const statusCode = resp.getResponseCode();
+    const raw = resp.getContentText();
 
-  // Intentar parsear JSON real
-  try {
-    const json = JSON.parse(out);
-    if (json.observaciones?.length === 8) {
-      return json.observaciones;
+    if (statusCode !== 200) {
+      Logger.log("Error de API Gemini: " + raw);
+      throw new Error(`Error de API (${statusCode}): ${raw.substring(0, 200)}`);
     }
-  } catch(e) {}
 
-  // Si viene en texto plano → separar líneas
-  const lines = out.split(/\n+/).map(x => x.trim()).filter(x => x.length>0);
-  if (lines.length >= 8) return lines.slice(0,8);
+    // Extraer texto de la respuesta
+    const responseData = JSON.parse(raw);
 
-  throw new Error("La IA devolvió menos de 8 observaciones. Respuesta:\n" + out);
+    // Verificar si hay errores de seguridad o bloqueos
+    if (responseData.promptFeedback?.blockReason) {
+      throw new Error("La IA bloqueó la generación: " + responseData.promptFeedback.blockReason);
+    }
+
+    const textContent = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+
+    if (!textContent) {
+      Logger.log("Respuesta completa de Gemini: " + raw);
+      throw new Error("La IA no devolvió texto. Revise los logs para más detalles.");
+    }
+
+    // Limpiar el texto (a veces viene con ```json ... ```)
+    let cleanText = textContent.trim();
+    if (cleanText.startsWith("```json")) {
+      cleanText = cleanText.replace(/```json\n?/, "").replace(/```\s*$/, "");
+    } else if (cleanText.startsWith("```")) {
+      cleanText = cleanText.replace(/```\n?/, "").replace(/```\s*$/, "");
+    }
+
+    // Parsear JSON
+    const jsonData = JSON.parse(cleanText);
+
+    if (!jsonData.observaciones || !Array.isArray(jsonData.observaciones)) {
+      throw new Error("El formato de respuesta no incluye el array 'observaciones'");
+    }
+
+    if (jsonData.observaciones.length !== 8) {
+      throw new Error(`Se esperaban 8 observaciones, pero se recibieron ${jsonData.observaciones.length}`);
+    }
+
+    // Validar que todas las observaciones tengan contenido
+    const observacionesValidas = jsonData.observaciones.every(obs =>
+      typeof obs === 'string' && obs.trim().length > 10
+    );
+
+    if (!observacionesValidas) {
+      throw new Error("Algunas observaciones están vacías o son muy cortas");
+    }
+
+    return jsonData.observaciones;
+
+  } catch (e) {
+    Logger.log("Error en generarObservacionesConIA_: " + e.toString());
+    throw new Error("Error al generar observaciones con IA: " + e.message);
+  }
 }
