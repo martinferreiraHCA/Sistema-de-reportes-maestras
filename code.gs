@@ -283,7 +283,8 @@ function obtenerModelo() {
       "gemini": "gemini-1.5-pro-latest",
       "openai": "gpt-4o-mini",
       "claude": "claude-3-5-sonnet-20241022",
-      "deepseek": "deepseek-chat"
+      "deepseek": "deepseek-chat",
+      "groq": "llama-3.1-70b-versatile"
     };
     return defaults[proveedor] || defaults["gemini"];
   }
@@ -315,6 +316,9 @@ function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, 
         break;
       case "deepseek":
         observaciones = generarConDeepSeek_(prompt);
+        break;
+      case "groq":
+        observaciones = generarConGroq_(prompt);
         break;
       default:
         throw new Error("Proveedor no soportado: " + proveedor);
@@ -537,6 +541,49 @@ function generarConDeepSeek_(prompt) {
 }
 
 /*************************************************************
+ * GROQ (Ultra-rápido y gratuito)
+ *************************************************************/
+function generarConGroq_(prompt) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_GROQ");
+  if (!apiKey) throw new Error("API Key de Groq no configurada");
+
+  const modelo = obtenerModelo();
+  const url = "https://api.groq.com/openai/v1/chat/completions";
+
+  const payload = {
+    model: modelo,
+    messages: [
+      { role: "system", content: "Eres un experto en educación que genera informes profesionales." },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.7,
+    max_tokens: 2048
+  };
+
+  const resp = UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const statusCode = resp.getResponseCode();
+  if (statusCode !== 200) {
+    throw new Error(`Error Groq ${statusCode}: ${resp.getContentText().substring(0, 200)}`);
+  }
+
+  const data = JSON.parse(resp.getContentText());
+  const text = data.choices?.[0]?.message?.content;
+
+  if (!text) throw new Error("Groq no devolvió texto");
+
+  return parsearJSON_(text);
+}
+
+/*************************************************************
  * PARSEAR JSON ROBUSTO
  *************************************************************/
 function parsearJSON_(text) {
@@ -592,6 +639,9 @@ function probarConexion() {
         break;
       case "deepseek":
         resultado = generarConDeepSeek_(prompt);
+        break;
+      case "groq":
+        resultado = generarConGroq_(prompt);
         break;
     }
 
@@ -748,6 +798,52 @@ function listarModelosDeepSeek() {
   }
 }
 
+// Listar modelos disponibles de Groq
+function listarModelosGroq() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_GROQ");
+  if (!apiKey) throw new Error("API Key de Groq no configurada");
+
+  const url = "https://api.groq.com/openai/v1/models";
+
+  try {
+    const resp = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`
+      },
+      muteHttpExceptions: true
+    });
+
+    if (resp.getResponseCode() !== 200) {
+      throw new Error(`Error ${resp.getResponseCode()}: ${resp.getContentText().substring(0, 200)}`);
+    }
+
+    const data = JSON.parse(resp.getContentText());
+    const modelos = data.data
+      .filter(m => {
+        const id = m.id.toLowerCase();
+        // Filtrar solo modelos activos de chat
+        return !id.includes('whisper') && !id.includes('distil');
+      })
+      .map(m => ({ id: m.id, nombre: m.id }))
+      .sort((a, b) => {
+        // Priorizar llama-3.1 y llama-3.3, luego mixtral, luego otros
+        if (a.nombre.includes('llama-3.3') && !b.nombre.includes('llama-3.3')) return -1;
+        if (!a.nombre.includes('llama-3.3') && b.nombre.includes('llama-3.3')) return 1;
+        if (a.nombre.includes('llama-3.1') && !b.nombre.includes('llama-3.1')) return -1;
+        if (!a.nombre.includes('llama-3.1') && b.nombre.includes('llama-3.1')) return 1;
+        if (a.nombre.includes('mixtral') && !b.nombre.includes('mixtral')) return -1;
+        if (!a.nombre.includes('mixtral') && b.nombre.includes('mixtral')) return 1;
+        return a.nombre.localeCompare(b.nombre);
+      });
+
+    return { success: true, modelos: modelos };
+
+  } catch (e) {
+    throw new Error("Error listando modelos de Groq: " + e.message);
+  }
+}
+
 // Función unificada para listar modelos según proveedor
 function listarModelosDisponibles() {
   const proveedor = obtenerProveedor();
@@ -766,6 +862,9 @@ function listarModelosDisponibles() {
         break;
       case "deepseek":
         resultado = listarModelosDeepSeek();
+        break;
+      case "groq":
+        resultado = listarModelosGroq();
         break;
       default:
         throw new Error("Proveedor no soportado");
