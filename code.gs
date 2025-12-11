@@ -550,17 +550,17 @@ function generarConGroq_(prompt) {
   const modelo = obtenerModelo();
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
-  // Mejorar el prompt para Groq
-  const promptMejorado = prompt + "\n\nIMPORTANTE: Tu respuesta debe ser ÚNICAMENTE el objeto JSON, sin ningún texto adicional antes o después.";
+  // Prompt específico para Groq - más directo
+  const promptMejorado = prompt + "\n\nREQUISITO CRÍTICO: Responde SOLO con el objeto JSON exacto solicitado. NO agregues explicaciones, comentarios, ni texto antes o después del JSON. El JSON debe comenzar con { y terminar con }.";
 
   const payload = {
     model: modelo,
     messages: [
-      { role: "system", content: "Eres un experto en educación. Respondes SIEMPRE con JSON válido, sin comentarios ni texto adicional." },
+      { role: "system", content: "Eres un asistente que responde exclusivamente en formato JSON válido. No agregas texto, explicaciones ni comentarios fuera del JSON." },
       { role: "user", content: promptMejorado }
     ],
     temperature: 0.7,
-    max_tokens: 2048
+    max_tokens: 4096
   };
 
   const resp = UrlFetchApp.fetch(url, {
@@ -583,7 +583,20 @@ function generarConGroq_(prompt) {
 
   if (!text) throw new Error("Groq no devolvió texto");
 
-  return parsearJSON_(text);
+  // Logging detallado para debug
+  Logger.log("=== RESPUESTA DE GROQ ===");
+  Logger.log("Modelo: " + modelo);
+  Logger.log("Longitud respuesta: " + text.length + " caracteres");
+  Logger.log("Primeros 1000 caracteres: " + text.substring(0, 1000));
+  Logger.log("Últimos 500 caracteres: " + text.substring(Math.max(0, text.length - 500)));
+
+  try {
+    return parsearJSON_(text);
+  } catch (e) {
+    Logger.log("ERROR AL PARSEAR - Texto completo:");
+    Logger.log(text);
+    throw e;
+  }
 }
 
 /*************************************************************
