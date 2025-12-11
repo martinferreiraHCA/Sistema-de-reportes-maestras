@@ -663,25 +663,85 @@ function probarConexion() {
   const modelo = obtenerModelo();
 
   try {
-    const prompt = "Responde con un JSON simple: {\"mensaje\": \"Conexión exitosa\"}";
+    let apiKey, url, payload, headers, resp;
 
-    let resultado;
     switch(proveedor) {
       case "gemini":
-        resultado = generarConGemini_(prompt);
+        apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_GEMINI");
+        if (!apiKey) throw new Error("API Key no configurada");
+        url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
+        payload = { contents: [{ parts: [{ text: "Di hola" }] }] };
+        resp = UrlFetchApp.fetch(url, {
+          method: "post",
+          contentType: "application/json",
+          payload: JSON.stringify(payload),
+          muteHttpExceptions: true
+        });
         break;
+
       case "openai":
-        resultado = generarConOpenAI_(prompt);
+        apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_OPENAI");
+        if (!apiKey) throw new Error("API Key no configurada");
+        url = "https://api.openai.com/v1/chat/completions";
+        payload = { model: modelo, messages: [{ role: "user", content: "Di hola" }], max_tokens: 10 };
+        resp = UrlFetchApp.fetch(url, {
+          method: "post",
+          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          payload: JSON.stringify(payload),
+          muteHttpExceptions: true
+        });
         break;
+
       case "claude":
-        resultado = generarConClaude_(prompt);
+        apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_CLAUDE");
+        if (!apiKey) throw new Error("API Key no configurada");
+        url = "https://api.anthropic.com/v1/messages";
+        payload = { model: modelo, max_tokens: 10, messages: [{ role: "user", content: "Di hola" }] };
+        resp = UrlFetchApp.fetch(url, {
+          method: "post",
+          headers: {
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+            "content-type": "application/json"
+          },
+          payload: JSON.stringify(payload),
+          muteHttpExceptions: true
+        });
         break;
+
       case "deepseek":
-        resultado = generarConDeepSeek_(prompt);
+        apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_DEEPSEEK");
+        if (!apiKey) throw new Error("API Key no configurada");
+        url = "https://api.deepseek.com/v1/chat/completions";
+        payload = { model: modelo, messages: [{ role: "user", content: "Di hola" }], max_tokens: 10 };
+        resp = UrlFetchApp.fetch(url, {
+          method: "post",
+          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          payload: JSON.stringify(payload),
+          muteHttpExceptions: true
+        });
         break;
+
       case "groq":
-        resultado = generarConGroq_(prompt);
+        apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_GROQ");
+        if (!apiKey) throw new Error("API Key no configurada");
+        url = "https://api.groq.com/openai/v1/chat/completions";
+        payload = { model: modelo, messages: [{ role: "user", content: "Di hola" }], max_tokens: 10 };
+        resp = UrlFetchApp.fetch(url, {
+          method: "post",
+          headers: { "Authorization": `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          payload: JSON.stringify(payload),
+          muteHttpExceptions: true
+        });
         break;
+
+      default:
+        throw new Error("Proveedor no soportado");
+    }
+
+    const statusCode = resp.getResponseCode();
+    if (statusCode !== 200) {
+      throw new Error(`Error ${statusCode}: ${resp.getContentText().substring(0, 200)}`);
     }
 
     return {
