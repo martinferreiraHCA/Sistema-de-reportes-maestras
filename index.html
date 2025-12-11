@@ -164,8 +164,10 @@
     <label>Proveedor de IA</label>
     <select id="proveedor">
       <option value="gemini">Google Gemini (Gratis con límites)</option>
+      <option value="groq">Groq (Gratis - Ultra rápido ⚡)</option>
       <option value="openai">OpenAI GPT (Requiere cuenta de pago)</option>
       <option value="claude">Anthropic Claude (Requiere cuenta de pago)</option>
+      <option value="deepseek">DeepSeek (Requiere cuenta de pago)</option>
     </select>
 
     <label style="margin-top: 15px;">Modelo</label>
@@ -235,6 +237,13 @@ const MODELOS = {
     { value: "gemini-1.5-flash", label: "Gemini 1.5 Flash (Rápido y eficiente)" },
     { value: "gemini-1.5-pro", label: "Gemini 1.5 Pro (Mayor calidad)" }
   ],
+  groq: [
+    { value: "llama-3.1-70b-versatile", label: "Llama 3.1 70B ⚡ (Recomendado - Ultra rápido)" },
+    { value: "llama-3.1-8b-instant", label: "Llama 3.1 8B ⚡⚡ (Instantáneo)" },
+    { value: "llama-3.3-70b-versatile", label: "Llama 3.3 70B (Última versión)" },
+    { value: "mixtral-8x7b-32768", label: "Mixtral 8x7B (Contexto largo)" },
+    { value: "gemma2-9b-it", label: "Gemma 2 9B (Eficiente)" }
+  ],
   openai: [
     { value: "gpt-4o-mini", label: "GPT-4o Mini ⚡ (Rápido y económico)" },
     { value: "gpt-4o", label: "GPT-4o (Mejor calidad)" },
@@ -244,6 +253,10 @@ const MODELOS = {
     { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet (Recomendado)" },
     { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku ⚡ (Más rápido)" },
     { value: "claude-3-opus-20240229", label: "Claude 3 Opus (Máxima calidad)" }
+  ],
+  deepseek: [
+    { value: "deepseek-chat", label: "DeepSeek Chat (Modelo general)" },
+    { value: "deepseek-coder", label: "DeepSeek Coder (Especializado en código)" }
   ]
 };
 
@@ -252,6 +265,10 @@ const PROVIDER_INFO = {
     url: "https://makersuite.google.com/app/apikey",
     text: "Obtén tu API Key gratis en Google AI Studio. Tiene límites generosos para uso personal."
   },
+  groq: {
+    url: "https://console.groq.com/keys",
+    text: "¡GRATIS! Obtén tu API Key gratuita en Groq Console. Inferencia ultra-rápida con modelos de código abierto (Llama, Mixtral). Límites generosos."
+  },
   openai: {
     url: "https://platform.openai.com/api-keys",
     text: "Requiere cuenta con créditos. Crea tu API Key en la plataforma de OpenAI."
@@ -259,6 +276,10 @@ const PROVIDER_INFO = {
   claude: {
     url: "https://console.anthropic.com/settings/keys",
     text: "Requiere cuenta con créditos. Crea tu API Key en Anthropic Console."
+  },
+  deepseek: {
+    url: "https://platform.deepseek.com/api_keys",
+    text: "Requiere cuenta con créditos. Crea tu API Key en DeepSeek Platform. Modelos potentes y económicos."
   }
 };
 
@@ -323,8 +344,10 @@ function actualizarProveedor() {
     // Hints de modelos
     const hints = {
       gemini: "💡 Flash = Rápido | Pro = Mayor calidad",
+      groq: "⚡ GRATIS y ultra-rápido | 70B = Mejor calidad | 8B = Instantáneo",
       openai: "💡 Mini = Económico | 4o = Mejor balance | Turbo = Máxima calidad",
-      claude: "💡 Haiku = Rápido | Sonnet = Balance | Opus = Máxima calidad"
+      claude: "💡 Haiku = Rápido | Sonnet = Balance | Opus = Máxima calidad",
+      deepseek: "💡 Chat = Uso general | Coder = Especializado en código"
     };
     modelHint.textContent = hints[proveedor] + " | 🔍 Haz clic en 'Listar Modelos' para ver todos";
   }
