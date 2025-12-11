@@ -270,6 +270,23 @@ window.onload = function() {
 
   // Event listener para cambio de proveedor
   document.getElementById("proveedor").addEventListener("change", actualizarProveedor);
+
+  // Event listener para cambio de modelo - guardar automáticamente
+  document.getElementById("modeloIA").addEventListener("change", function() {
+    const modelo = this.value;
+    if (modelo) {
+      google.script.run
+        .withSuccessHandler(function() {
+          console.log("Modelo guardado:", modelo);
+          mostrarEstado("estadoApi", `✅ Modelo actualizado: ${modelo}`, "success");
+        })
+        .withFailureHandler(function(err) {
+          console.error("Error guardando modelo:", err);
+          mostrarEstado("estadoApi", "❌ Error guardando modelo: " + err.message, "error");
+        })
+        .guardarModelo(modelo);
+    }
+  });
 };
 
 // Actualizar modelos y info según proveedor seleccionado
@@ -325,6 +342,18 @@ function actualizarProveedor() {
       console.error("Error guardando proveedor:", err);
     })
     .guardarProveedor(proveedor);
+
+  // Guardar el primer modelo seleccionado automáticamente
+  setTimeout(function() {
+    const primerModelo = modeloSelect.value;
+    if (primerModelo) {
+      google.script.run
+        .withFailureHandler(function(err) {
+          console.error("Error guardando modelo inicial:", err);
+        })
+        .guardarModelo(primerModelo);
+    }
+  }, 100);
 }
 
 // Verificar estado de API
@@ -439,6 +468,15 @@ document.getElementById("btnListarModelos").onclick = function() {
 
         // Guardar en sessionStorage
         sessionStorage.setItem(`modelos_${proveedor}`, JSON.stringify(result.modelos));
+
+        // Guardar automáticamente el primer modelo seleccionado
+        if (modeloSelect.value) {
+          google.script.run
+            .withFailureHandler(function(err) {
+              console.error("Error guardando modelo:", err);
+            })
+            .guardarModelo(modeloSelect.value);
+        }
 
         let mensaje = `✅ Se encontraron ${result.modelos.length} modelos disponibles`;
         if (result.nota) {
