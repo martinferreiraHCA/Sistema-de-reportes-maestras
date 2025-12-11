@@ -166,6 +166,7 @@
       <option value="gemini">Google Gemini (Gratis con límites)</option>
       <option value="openai">OpenAI GPT (Requiere cuenta de pago)</option>
       <option value="claude">Anthropic Claude (Requiere cuenta de pago)</option>
+      <option value="deepseek">DeepSeek (Requiere cuenta de pago)</option>
     </select>
 
     <label style="margin-top: 15px;">Modelo</label>
@@ -244,6 +245,10 @@ const MODELOS = {
     { value: "claude-3-5-sonnet-20241022", label: "Claude 3.5 Sonnet (Recomendado)" },
     { value: "claude-3-5-haiku-20241022", label: "Claude 3.5 Haiku ⚡ (Más rápido)" },
     { value: "claude-3-opus-20240229", label: "Claude 3 Opus (Máxima calidad)" }
+  ],
+  deepseek: [
+    { value: "deepseek-chat", label: "DeepSeek Chat (Modelo general)" },
+    { value: "deepseek-coder", label: "DeepSeek Coder (Especializado en código)" }
   ]
 };
 
@@ -259,6 +264,10 @@ const PROVIDER_INFO = {
   claude: {
     url: "https://console.anthropic.com/settings/keys",
     text: "Requiere cuenta con créditos. Crea tu API Key en Anthropic Console."
+  },
+  deepseek: {
+    url: "https://platform.deepseek.com/api_keys",
+    text: "Requiere cuenta con créditos. Crea tu API Key en DeepSeek Platform. Modelos potentes y económicos."
   }
 };
 
@@ -324,7 +333,8 @@ function actualizarProveedor() {
     const hints = {
       gemini: "💡 Flash = Rápido | Pro = Mayor calidad",
       openai: "💡 Mini = Económico | 4o = Mejor balance | Turbo = Máxima calidad",
-      claude: "💡 Haiku = Rápido | Sonnet = Balance | Opus = Máxima calidad"
+      claude: "💡 Haiku = Rápido | Sonnet = Balance | Opus = Máxima calidad",
+      deepseek: "💡 Chat = Uso general | Coder = Especializado en código"
     };
     modelHint.textContent = hints[proveedor] + " | 🔍 Haz clic en 'Listar Modelos' para ver todos";
   }

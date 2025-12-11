@@ -282,7 +282,8 @@ function obtenerModelo() {
     const defaults = {
       "gemini": "gemini-1.5-pro-latest",
       "openai": "gpt-4o-mini",
-      "claude": "claude-3-5-sonnet-20241022"
+      "claude": "claude-3-5-sonnet-20241022",
+      "deepseek": "deepseek-chat"
     };
     return defaults[proveedor] || defaults["gemini"];
   }
@@ -311,6 +312,9 @@ function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, 
         break;
       case "claude":
         observaciones = generarConClaude_(prompt);
+        break;
+      case "deepseek":
+        observaciones = generarConDeepSeek_(prompt);
         break;
       default:
         throw new Error("Proveedor no soportado: " + proveedor);
@@ -490,6 +494,49 @@ function generarConClaude_(prompt) {
 }
 
 /*************************************************************
+ * DEEPSEEK
+ *************************************************************/
+function generarConDeepSeek_(prompt) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_DEEPSEEK");
+  if (!apiKey) throw new Error("API Key de DeepSeek no configurada");
+
+  const modelo = obtenerModelo();
+  const url = "https://api.deepseek.com/v1/chat/completions";
+
+  const payload = {
+    model: modelo,
+    messages: [
+      { role: "system", content: "Eres un experto en educación que genera informes profesionales." },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.7,
+    max_tokens: 2048
+  };
+
+  const resp = UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const statusCode = resp.getResponseCode();
+  if (statusCode !== 200) {
+    throw new Error(`Error DeepSeek ${statusCode}: ${resp.getContentText().substring(0, 200)}`);
+  }
+
+  const data = JSON.parse(resp.getContentText());
+  const text = data.choices?.[0]?.message?.content;
+
+  if (!text) throw new Error("DeepSeek no devolvió texto");
+
+  return parsearJSON_(text);
+}
+
+/*************************************************************
  * PARSEAR JSON ROBUSTO
  *************************************************************/
 function parsearJSON_(text) {
@@ -542,6 +589,9 @@ function probarConexion() {
         break;
       case "claude":
         resultado = generarConClaude_(prompt);
+        break;
+      case "deepseek":
+        resultado = generarConDeepSeek_(prompt);
         break;
     }
 
@@ -662,6 +712,42 @@ function listarModelosClaude() {
   };
 }
 
+// Listar modelos disponibles de DeepSeek
+function listarModelosDeepSeek() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_DEEPSEEK");
+  if (!apiKey) throw new Error("API Key de DeepSeek no configurada");
+
+  const url = "https://api.deepseek.com/v1/models";
+
+  try {
+    const resp = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`
+      },
+      muteHttpExceptions: true
+    });
+
+    if (resp.getResponseCode() !== 200) {
+      throw new Error(`Error ${resp.getResponseCode()}: ${resp.getContentText().substring(0, 200)}`);
+    }
+
+    const data = JSON.parse(resp.getContentText());
+    const modelos = data.data
+      .filter(m => {
+        const id = m.id.toLowerCase();
+        return id.includes('deepseek');
+      })
+      .map(m => ({ id: m.id, nombre: m.id }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    return { success: true, modelos: modelos };
+
+  } catch (e) {
+    throw new Error("Error listando modelos de DeepSeek: " + e.message);
+  }
+}
+
 // Función unificada para listar modelos según proveedor
 function listarModelosDisponibles() {
   const proveedor = obtenerProveedor();
@@ -677,6 +763,9 @@ function listarModelosDisponibles() {
         break;
       case "claude":
         resultado = listarModelosClaude();
+        break;
+      case "deepseek":
+        resultado = listarModelosDeepSeek();
         break;
       default:
         throw new Error("Proveedor no soportado");
