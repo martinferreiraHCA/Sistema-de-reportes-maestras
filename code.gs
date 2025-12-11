@@ -554,3 +554,138 @@ function probarConexion() {
     throw new Error(`Error conectando con ${proveedor}: ${e.message}`);
   }
 }
+
+/*************************************************************
+ * LISTAR MODELOS DISPONIBLES POR PROVEEDOR
+ *************************************************************/
+
+// Listar modelos disponibles de Gemini
+function listarModelosGemini() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_GEMINI");
+  if (!apiKey) throw new Error("API Key de Gemini no configurada");
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
+
+  try {
+    const resp = UrlFetchApp.fetch(url, {
+      method: "get",
+      muteHttpExceptions: true
+    });
+
+    if (resp.getResponseCode() !== 200) {
+      throw new Error(`Error ${resp.getResponseCode()}: ${resp.getContentText().substring(0, 200)}`);
+    }
+
+    const data = JSON.parse(resp.getContentText());
+    const modelos = data.models
+      .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
+      .map(m => ({
+        id: m.name.replace("models/", ""),
+        nombre: m.displayName || m.name.replace("models/", "")
+      }))
+      .sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+    return { success: true, modelos: modelos };
+
+  } catch (e) {
+    throw new Error("Error listando modelos de Gemini: " + e.message);
+  }
+}
+
+// Listar modelos disponibles de OpenAI
+function listarModelosOpenAI() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_OPENAI");
+  if (!apiKey) throw new Error("API Key de OpenAI no configurada");
+
+  const url = "https://api.openai.com/v1/models";
+
+  try {
+    const resp = UrlFetchApp.fetch(url, {
+      method: "get",
+      headers: {
+        "Authorization": `Bearer ${apiKey}`
+      },
+      muteHttpExceptions: true
+    });
+
+    if (resp.getResponseCode() !== 200) {
+      throw new Error(`Error ${resp.getResponseCode()}: ${resp.getContentText().substring(0, 200)}`);
+    }
+
+    const data = JSON.parse(resp.getContentText());
+
+    // Filtrar solo modelos GPT útiles para chat
+    const modelos = data.data
+      .filter(m => {
+        const id = m.id.toLowerCase();
+        return (id.includes('gpt-4') || id.includes('gpt-3.5')) &&
+               !id.includes('instruct') &&
+               !id.includes('vision') &&
+               !id.includes('realtime');
+      })
+      .map(m => ({
+        id: m.id,
+        nombre: m.id
+      }))
+      .sort((a, b) => {
+        // Ordenar: GPT-4 primero, luego GPT-3.5
+        if (a.nombre.includes('gpt-4') && !b.nombre.includes('gpt-4')) return -1;
+        if (!a.nombre.includes('gpt-4') && b.nombre.includes('gpt-4')) return 1;
+        return a.nombre.localeCompare(b.nombre);
+      });
+
+    return { success: true, modelos: modelos };
+
+  } catch (e) {
+    throw new Error("Error listando modelos de OpenAI: " + e.message);
+  }
+}
+
+// Listar modelos disponibles de Claude
+function listarModelosClaude() {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_CLAUDE");
+  if (!apiKey) throw new Error("API Key de Claude no configurada");
+
+  // Anthropic no tiene endpoint público de modelos, retornar lista conocida
+  const modelosConocidos = [
+    { id: "claude-3-5-sonnet-20241022", nombre: "Claude 3.5 Sonnet (20241022)" },
+    { id: "claude-3-5-haiku-20241022", nombre: "Claude 3.5 Haiku (20241022)" },
+    { id: "claude-3-opus-20240229", nombre: "Claude 3 Opus (20240229)" },
+    { id: "claude-3-sonnet-20240229", nombre: "Claude 3 Sonnet (20240229)" },
+    { id: "claude-3-haiku-20240307", nombre: "Claude 3 Haiku (20240307)" }
+  ];
+
+  return {
+    success: true,
+    modelos: modelosConocidos,
+    nota: "Lista de modelos conocidos de Claude (no hay API pública de listado)"
+  };
+}
+
+// Función unificada para listar modelos según proveedor
+function listarModelosDisponibles() {
+  const proveedor = obtenerProveedor();
+
+  try {
+    let resultado;
+    switch(proveedor) {
+      case "gemini":
+        resultado = listarModelosGemini();
+        break;
+      case "openai":
+        resultado = listarModelosOpenAI();
+        break;
+      case "claude":
+        resultado = listarModelosClaude();
+        break;
+      default:
+        throw new Error("Proveedor no soportado");
+    }
+
+    return resultado;
+
+  } catch (e) {
+    Logger.log("Error listando modelos: " + e.toString());
+    throw new Error(e.message);
+  }
+}
