@@ -550,15 +550,17 @@ function generarConGroq_(prompt) {
   const modelo = obtenerModelo();
   const url = "https://api.groq.com/openai/v1/chat/completions";
 
+  // Mejorar el prompt para Groq
+  const promptMejorado = prompt + "\n\nIMPORTANTE: Tu respuesta debe ser ÚNICAMENTE el objeto JSON, sin ningún texto adicional antes o después.";
+
   const payload = {
     model: modelo,
     messages: [
-      { role: "system", content: "Eres un experto en educación que genera informes profesionales. Responde SIEMPRE en formato JSON válido." },
-      { role: "user", content: prompt }
+      { role: "system", content: "Eres un experto en educación. Respondes SIEMPRE con JSON válido, sin comentarios ni texto adicional." },
+      { role: "user", content: promptMejorado }
     ],
     temperature: 0.7,
-    max_tokens: 2048,
-    response_format: { type: "json_object" }
+    max_tokens: 2048
   };
 
   const resp = UrlFetchApp.fetch(url, {
@@ -607,14 +609,40 @@ function parsearJSON_(text) {
   try {
     const data = JSON.parse(cleanText);
 
-    if (!data.observaciones || !Array.isArray(data.observaciones)) {
-      throw new Error("Formato inválido: falta array 'observaciones'");
+    // Buscar el array de observaciones en diferentes ubicaciones posibles
+    let observaciones = null;
+
+    if (data.observaciones && Array.isArray(data.observaciones)) {
+      observaciones = data.observaciones;
+    } else if (data.observations && Array.isArray(data.observations)) {
+      observaciones = data.observations;
+    } else if (data.items && Array.isArray(data.items)) {
+      observaciones = data.items;
+    } else if (data.responses && Array.isArray(data.responses)) {
+      observaciones = data.responses;
+    } else if (Array.isArray(data)) {
+      observaciones = data;
+    } else {
+      // Buscar cualquier array en el objeto
+      for (let key in data) {
+        if (Array.isArray(data[key]) && data[key].length >= 8) {
+          observaciones = data[key];
+          break;
+        }
+      }
     }
 
-    const obs = data.observaciones.filter(o => typeof o === 'string' && o.trim().length > 10);
+    if (!observaciones || !Array.isArray(observaciones)) {
+      Logger.log("JSON parseado: " + JSON.stringify(data).substring(0, 300));
+      throw new Error("Formato inválido: no se encontró array de observaciones");
+    }
+
+    const obs = observaciones.filter(o => typeof o === 'string' && o.trim().length > 10);
 
     if (obs.length < 8) {
-      throw new Error(`Se esperaban 8 observaciones, se encontraron ${obs.length}. Intenta de nuevo.`);
+      Logger.log("Observaciones encontradas: " + obs.length);
+      Logger.log("Contenido: " + JSON.stringify(observaciones).substring(0, 300));
+      throw new Error(`Se esperaban al menos 8 observaciones, se encontraron ${obs.length}. Intenta de nuevo.`);
     }
 
     // Si hay más de 8, tomar solo las primeras 8
@@ -623,7 +651,7 @@ function parsearJSON_(text) {
   } catch (e) {
     Logger.log("Error parseando JSON: " + e.toString());
     Logger.log("Texto recibido: " + text.substring(0, 500));
-    throw new Error("La IA no generó el formato correcto. Intenta de nuevo. Error: " + e.message);
+    throw new Error("La IA no generó el formato correcto. Error: " + e.message);
   }
 }
 
