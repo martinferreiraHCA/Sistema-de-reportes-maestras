@@ -79,7 +79,6 @@ function inicializarSistema_() {
     crearPlantilla_(folderTemplates, TEMPLATE_PRIMARY_NAME, ITEMS_PRIMARIA);
   }
 
-  // también aseguramos carpetas de salida
   getOrCreateFolder_(folderRoot, INITIAL_FOLDER_NAME);
   getOrCreateFolder_(folderRoot, PRIMARY_FOLDER_NAME);
 }
@@ -172,7 +171,6 @@ function getDocentes(nivel) {
  * GENERAR INFORME COMPLETO
  *************************************************************/
 function generarInforme(params) {
-
   inicializarSistema_();
 
   const nivel = params.nivel;
@@ -198,27 +196,14 @@ function generarInforme(params) {
     params.infoExtra
   );
 
-  // Determinar carpeta de destino (personalizada o por defecto)
-  const customFolderId = obtenerCarpeta();
-  let folderRoot;
-
-  if (customFolderId) {
-    // Usar carpeta personalizada
-    folderRoot = DriveApp.getFolderById(customFolderId);
-  } else {
-    // Usar carpeta por defecto
-    const root = DriveApp.getRootFolder();
-    folderRoot = getOrCreateFolder_(root, ROOT_FOLDER_NAME);
-  }
-
+  const root = DriveApp.getRootFolder();
+  const folderRoot = getOrCreateFolder_(root, ROOT_FOLDER_NAME);
   const outFolder = nivel === "inicial"
     ? getOrCreateFolder_(folderRoot, INITIAL_FOLDER_NAME)
     : getOrCreateFolder_(folderRoot, PRIMARY_FOLDER_NAME);
 
   // Plantilla correcta
-  const root = DriveApp.getRootFolder();
-  const defaultFolderRoot = getOrCreateFolder_(root, ROOT_FOLDER_NAME);
-  const templateFolder = getOrCreateFolder_(defaultFolderRoot, TEMPLATE_FOLDER_NAME);
+  const templateFolder = getOrCreateFolder_(folderRoot, TEMPLATE_FOLDER_NAME);
   const plantName = nivel === "inicial" ? TEMPLATE_INITIAL_NAME : TEMPLATE_PRIMARY_NAME;
   const plantilla = templateFolder.getFilesByName(plantName).next();
 
@@ -241,404 +226,331 @@ function generarInforme(params) {
   );
 
   doc.saveAndClose();
-
-  // Retornar información completa para el historial
-  return {
-    url: doc.getUrl(),
-    titulo: `Informe - ${docente.nombre} - ${nivel}`,
-    docente: docente.nombre,
-    nivel: nivel === "inicial" ? "Inicial" : "Primaria",
-    fecha: `${FECHA.DIA}/${FECHA.MES}/${FECHA.ANIO}`,
-    timestamp: new Date().getTime()
-  };
+  return { url: doc.getUrl() };
 }
 
 /*************************************************************
- * CONFIGURACIÓN DE API KEY
+ * CONFIGURACIÓN MULTI-PROVEEDOR IA
  *************************************************************/
 
-// Guardar API Key de Gemini
+// Guardar proveedor seleccionado
+function guardarProveedor(proveedor) {
+  PropertiesService.getScriptProperties().setProperty("AI_PROVIDER", proveedor);
+  return { success: true };
+}
+
+// Obtener proveedor actual
+function obtenerProveedor() {
+  return PropertiesService.getScriptProperties().getProperty("AI_PROVIDER") || "gemini";
+}
+
+// Guardar API Key
 function guardarApiKey(apiKey) {
   if (!apiKey || apiKey.trim() === "") {
     throw new Error("La API Key no puede estar vacía");
   }
 
-  try {
-    PropertiesService.getScriptProperties().setProperty("GEMINI_API_KEY", apiKey.trim());
-    return { success: true, message: "API Key guardada correctamente" };
-  } catch (e) {
-    throw new Error("Error al guardar la API Key: " + e.message);
-  }
+  const proveedor = obtenerProveedor();
+  PropertiesService.getScriptProperties().setProperty(`API_KEY_${proveedor.toUpperCase()}`, apiKey.trim());
+  return { success: true, message: "API Key guardada correctamente" };
 }
 
-// Verificar si la API Key está configurada
+// Verificar API Key
 function verificarApiKey() {
-  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+  const proveedor = obtenerProveedor();
+  const apiKey = PropertiesService.getScriptProperties().getProperty(`API_KEY_${proveedor.toUpperCase()}`);
   return {
     configurada: !!apiKey,
+    proveedor: proveedor,
     keyParcial: apiKey ? "..." + apiKey.slice(-8) : null
   };
 }
 
-// Guardar modelo seleccionado
+// Guardar modelo
 function guardarModelo(modelo) {
-  try {
-    PropertiesService.getScriptProperties().setProperty("GEMINI_MODEL", modelo);
-    return { success: true, message: "Modelo guardado: " + modelo };
-  } catch (e) {
-    throw new Error("Error al guardar modelo: " + e.message);
-  }
+  PropertiesService.getScriptProperties().setProperty("AI_MODEL", modelo);
+  return { success: true };
 }
 
-// Obtener modelo seleccionado (por defecto gemini-2.5-flash)
+// Obtener modelo
 function obtenerModelo() {
-  const modelo = PropertiesService.getScriptProperties().getProperty("GEMINI_MODEL");
-  return modelo || "gemini-2.5-flash";
-}
+  const proveedor = obtenerProveedor();
+  const modelo = PropertiesService.getScriptProperties().getProperty("AI_MODEL");
 
-// Extraer ID de carpeta desde URL o ID directo
-function extraerFolderId_(input) {
-  if (!input || input.trim() === "") return null;
-
-  const cleanInput = input.trim();
-
-  // Si es una URL de Google Drive
-  if (cleanInput.includes("drive.google.com")) {
-    const match = cleanInput.match(/folders\/([a-zA-Z0-9_-]+)/);
-    return match ? match[1] : null;
+  // Modelos por defecto según proveedor
+  if (!modelo) {
+    const defaults = {
+      "gemini": "gemini-2.0-flash-exp",
+      "openai": "gpt-4o-mini",
+      "claude": "claude-3-5-sonnet-20241022"
+    };
+    return defaults[proveedor] || defaults["gemini"];
   }
 
-  // Si ya es un ID directo
-  return cleanInput;
+  return modelo;
 }
 
-// Guardar carpeta personalizada
-function guardarCarpeta(input) {
-  try {
-    const folderId = extraerFolderId_(input);
+/*************************************************************
+ * GENERACIÓN CON IA - MULTI-PROVEEDOR
+ *************************************************************/
+function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, infoExtra) {
+  const proveedor = obtenerProveedor();
+  const items = nivel === "inicial" ? ITEMS_INICIAL : ITEMS_PRIMARIA;
 
-    if (!folderId) {
-      throw new Error("No se pudo extraer el ID de la carpeta. Proporciona una URL válida o un ID de carpeta.");
+  const prompt = crearPrompt_(nivel, docente, grupo, fortalezas, mejoras, infoExtra, items);
+
+  let observaciones = [];
+
+  try {
+    switch(proveedor) {
+      case "gemini":
+        observaciones = generarConGemini_(prompt);
+        break;
+      case "openai":
+        observaciones = generarConOpenAI_(prompt);
+        break;
+      case "claude":
+        observaciones = generarConClaude_(prompt);
+        break;
+      default:
+        throw new Error("Proveedor no soportado: " + proveedor);
     }
 
-    // Verificar que la carpeta existe y es accesible
-    const folder = DriveApp.getFolderById(folderId);
-    PropertiesService.getScriptProperties().setProperty("CUSTOM_FOLDER_ID", folderId);
-    return { success: true, message: "Carpeta configurada: " + folder.getName() };
-  } catch (e) {
-    throw new Error("Error: Carpeta no válida o sin permisos de acceso. Verifica la URL o ID.");
-  }
-}
-
-// Obtener carpeta configurada
-function obtenerCarpeta() {
-  const folderId = PropertiesService.getScriptProperties().getProperty("CUSTOM_FOLDER_ID");
-  return folderId || null;
-}
-
-// Verificar carpeta personalizada
-function verificarCarpeta() {
-  const folderId = obtenerCarpeta();
-  if (!folderId) {
-    return { configurada: false, nombre: null };
-  }
-
-  try {
-    const folder = DriveApp.getFolderById(folderId);
-    return { configurada: true, nombre: folder.getName() };
-  } catch (e) {
-    return { configurada: false, nombre: null, error: "Carpeta no accesible" };
-  }
-}
-
-// Listar modelos disponibles
-function listarModelosDisponibles() {
-  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
-
-  if (!apiKey) {
-    throw new Error("No se ha configurado la API Key de Gemini");
-  }
-
-  const url = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`;
-
-  try {
-    const resp = UrlFetchApp.fetch(url, {
-      method: "get",
-      muteHttpExceptions: true
-    });
-
-    const statusCode = resp.getResponseCode();
-
-    if (statusCode === 200) {
-      const data = JSON.parse(resp.getContentText());
-      const modelos = data.models
-        .filter(m => m.supportedGenerationMethods && m.supportedGenerationMethods.includes("generateContent"))
-        .map(m => m.name.replace("models/", ""))
-        .join(", ");
-
-      return {
-        success: true,
-        message: "Modelos disponibles: " + modelos
-      };
-    } else {
-      throw new Error(`Error ${statusCode}: ${resp.getContentText().substring(0, 200)}`);
+    if (observaciones.length !== 8) {
+      throw new Error(`Se esperaban 8 observaciones, se recibieron ${observaciones.length}`);
     }
+
+    return observaciones;
+
   } catch (e) {
-    throw new Error("Error al listar modelos: " + e.message);
-  }
-}
-
-// Probar conexión con Gemini
-function probarConexionGemini() {
-  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
-
-  if (!apiKey) {
-    throw new Error("No se ha configurado la API Key de Gemini");
-  }
-
-  const modelo = obtenerModelo();
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
-
-  const payload = {
-    contents: [{
-      parts: [{ text: "Di 'Conexión exitosa' en una palabra." }]
-    }]
-  };
-
-  try {
-    const resp = UrlFetchApp.fetch(url, {
-      method: "post",
-      contentType: "application/json",
-      payload: JSON.stringify(payload),
-      muteHttpExceptions: true
-    });
-
-    const statusCode = resp.getResponseCode();
-
-    if (statusCode === 200) {
-      return { success: true, message: "Conexión exitosa con Gemini API" };
-    } else {
-      const error = resp.getContentText();
-      throw new Error(`Error ${statusCode}: ${error.substring(0, 200)}`);
-    }
-  } catch (e) {
-    throw new Error("Error al conectar con Gemini: " + e.message);
+    Logger.log("Error generando observaciones: " + e.toString());
+    throw new Error("Error al generar observaciones: " + e.message);
   }
 }
 
 /*************************************************************
- * IA – GEMINI GENERA OBSERVACIONES CONTEXTUALIZADAS
+ * CREAR PROMPT UNIVERSAL
  *************************************************************/
-function generarObservacionesConIA_(nivel, docente, grupo, fortalezas, mejoras, infoExtra) {
-  const apiKey = PropertiesService.getScriptProperties().getProperty("GEMINI_API_KEY");
+function crearPrompt_(nivel, docente, grupo, fortalezas, mejoras, infoExtra, items) {
+  return `Genera 8 observaciones profesionales para un informe de actuación docente.
 
-  if (!apiKey) {
-    throw new Error("No se ha configurado la API Key de Gemini. Configure GEMINI_API_KEY en las propiedades del script.");
-  }
+DATOS DEL DOCENTE:
+- Nombre: ${docente.nombre}
+- Nivel: ${nivel === "inicial" ? "Educación Inicial" : "Primaria"}
+- Clase: ${grupo || docente.clase}
+- Fortalezas: ${fortalezas || "No especificadas"}
+- Aspectos a mejorar: ${mejoras || "No especificadas"}
+- Información adicional: ${infoExtra || "Ninguna"}
 
-  // Usar modelo seleccionado por el usuario
+CRITERIOS DE EVALUACIÓN:
+${items.map((item, i) => `${i+1}. ${item}`).join('\n\n')}
+
+INSTRUCCIONES:
+Genera EXACTAMENTE 8 observaciones profesionales (2-3 oraciones cada una), una para cada criterio listado arriba.
+Cada observación debe ser específica, constructiva y relacionada directamente con su criterio correspondiente.
+
+FORMATO DE RESPUESTA (JSON):
+{
+  "observaciones": [
+    "Observación 1 aquí",
+    "Observación 2 aquí",
+    "Observación 3 aquí",
+    "Observación 4 aquí",
+    "Observación 5 aquí",
+    "Observación 6 aquí",
+    "Observación 7 aquí",
+    "Observación 8 aquí"
+  ]
+}
+
+Responde SOLO con el JSON, sin texto adicional.`;
+}
+
+/*************************************************************
+ * GOOGLE GEMINI
+ *************************************************************/
+function generarConGemini_(prompt) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_GEMINI");
+  if (!apiKey) throw new Error("API Key de Gemini no configurada");
+
   const modelo = obtenerModelo();
   const url = `https://generativelanguage.googleapis.com/v1beta/models/${modelo}:generateContent?key=${apiKey}`;
 
-  // Obtener los ítems según el nivel
-  const items = nivel === "inicial" ? ITEMS_INICIAL : ITEMS_PRIMARIA;
-
-  // Prompt simplificado con delimitadores únicos
-  const prompt = `Genera 8 observaciones profesionales para un informe de actuación docente.
-
-DATOS DEL DOCENTE:
-Nombre: ${docente.nombre}
-Nivel: ${nivel === "inicial" ? "Inicial" : "Primaria"}
-Clase: ${grupo || docente.clase}
-Fortalezas: ${fortalezas || "No especificadas"}
-Mejoras: ${mejoras || "No especificadas"}
-Info adicional: ${infoExtra || "Ninguna"}
-
-CRITERIOS DE EVALUACIÓN:
-${items.map((item, i) => `\nCRITERIO ${i+1}: ${item}`).join('\n')}
-
-INSTRUCCIONES:
-Escribe EXACTAMENTE 8 observaciones (2-3 oraciones cada una). Usa este formato EXACTAMENTE:
-
----OBS1---
-Tu observación para el criterio 1 aquí
----OBS2---
-Tu observación para el criterio 2 aquí
----OBS3---
-Tu observación para el criterio 3 aquí
----OBS4---
-Tu observación para el criterio 4 aquí
----OBS5---
-Tu observación para el criterio 5 aquí
----OBS6---
-Tu observación para el criterio 6 aquí
----OBS7---
-Tu observación para el criterio 7 aquí
----OBS8---
-Tu observación para el criterio 8 aquí
-
-IMPORTANTE: Usa EXACTAMENTE los marcadores ---OBS1--- hasta ---OBS8---`;
-
   const payload = {
-    contents: [{
-      parts: [{ text: prompt }]
-    }],
+    contents: [{ parts: [{ text: prompt }] }],
     generationConfig: {
       temperature: 0.7,
-      topK: 40,
-      topP: 0.95,
       maxOutputTokens: 2048,
     }
   };
 
-  // Reintentos automáticos para errores temporales (503, 429, 500)
-  const maxRetries = 3;
-  let resp = null;
-  let raw = null;
-  let statusCode = null;
+  const resp = UrlFetchApp.fetch(url, {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
 
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      if (attempt > 1) {
-        // Espera progresiva: 2s, 4s
-        const waitTime = Math.pow(2, attempt - 1) * 1000;
-        Logger.log(`Reintento ${attempt}/${maxRetries} después de ${waitTime/1000}s...`);
-        Utilities.sleep(waitTime);
-      }
-
-      resp = UrlFetchApp.fetch(url, {
-        method: "post",
-        contentType: "application/json",
-        payload: JSON.stringify(payload),
-        muteHttpExceptions: true
-      });
-
-      statusCode = resp.getResponseCode();
-      raw = resp.getContentText();
-
-      // Errores transitorios - reintentar
-      if (statusCode === 503 || statusCode === 429 || statusCode === 500) {
-        Logger.log(`Intento ${attempt}/${maxRetries}: Error transitorio ${statusCode}`);
-
-        if (attempt < maxRetries) {
-          continue; // Reintentar
-        } else {
-          throw new Error(`El servicio de Google AI está temporalmente no disponible (Error ${statusCode}). Por favor intenta de nuevo en unos minutos.`);
-        }
-      }
-
-      // Otros errores - no reintentar
-      if (statusCode !== 200) {
-        Logger.log("Error de API Gemini: " + raw);
-        throw new Error(`Error de API (${statusCode}): ${raw.substring(0, 200)}`);
-      }
-
-      // Éxito - salir del loop
-      Logger.log("✓ Respuesta exitosa de Google AI");
-      break;
-
-    } catch (e) {
-      // Si es el último intento o no es un error transitorio, lanzar
-      if (attempt === maxRetries || statusCode === 400 || statusCode === 401 || statusCode === 403) {
-        throw e;
-      }
-      // Sino, continuar con siguiente intento
-      Logger.log(`Intento ${attempt} falló, reintentando...`);
-    }
+  const statusCode = resp.getResponseCode();
+  if (statusCode !== 200) {
+    throw new Error(`Error Gemini ${statusCode}: ${resp.getContentText().substring(0, 200)}`);
   }
 
-  // Procesar la respuesta exitosa
+  const data = JSON.parse(resp.getContentText());
+  const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+
+  if (!text) throw new Error("Gemini no devolvió texto");
+
+  return parsearJSON_(text);
+}
+
+/*************************************************************
+ * OPENAI (GPT)
+ *************************************************************/
+function generarConOpenAI_(prompt) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_OPENAI");
+  if (!apiKey) throw new Error("API Key de OpenAI no configurada");
+
+  const modelo = obtenerModelo();
+  const url = "https://api.openai.com/v1/chat/completions";
+
+  const payload = {
+    model: modelo,
+    messages: [
+      { role: "system", content: "Eres un experto en educación que genera informes profesionales." },
+      { role: "user", content: prompt }
+    ],
+    temperature: 0.7,
+    max_tokens: 2048
+  };
+
+  const resp = UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json"
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const statusCode = resp.getResponseCode();
+  if (statusCode !== 200) {
+    throw new Error(`Error OpenAI ${statusCode}: ${resp.getContentText().substring(0, 200)}`);
+  }
+
+  const data = JSON.parse(resp.getContentText());
+  const text = data.choices?.[0]?.message?.content;
+
+  if (!text) throw new Error("OpenAI no devolvió texto");
+
+  return parsearJSON_(text);
+}
+
+/*************************************************************
+ * ANTHROPIC CLAUDE
+ *************************************************************/
+function generarConClaude_(prompt) {
+  const apiKey = PropertiesService.getScriptProperties().getProperty("API_KEY_CLAUDE");
+  if (!apiKey) throw new Error("API Key de Claude no configurada");
+
+  const modelo = obtenerModelo();
+  const url = "https://api.anthropic.com/v1/messages";
+
+  const payload = {
+    model: modelo,
+    max_tokens: 2048,
+    messages: [
+      { role: "user", content: prompt }
+    ]
+  };
+
+  const resp = UrlFetchApp.fetch(url, {
+    method: "post",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "content-type": "application/json"
+    },
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  });
+
+  const statusCode = resp.getResponseCode();
+  if (statusCode !== 200) {
+    throw new Error(`Error Claude ${statusCode}: ${resp.getContentText().substring(0, 200)}`);
+  }
+
+  const data = JSON.parse(resp.getContentText());
+  const text = data.content?.[0]?.text;
+
+  if (!text) throw new Error("Claude no devolvió texto");
+
+  return parsearJSON_(text);
+}
+
+/*************************************************************
+ * PARSEAR JSON ROBUSTO
+ *************************************************************/
+function parsearJSON_(text) {
+  let cleanText = text.trim();
+
+  // Remover bloques de código markdown
+  if (cleanText.startsWith("```")) {
+    cleanText = cleanText.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+  }
+
   try {
-    const responseData = JSON.parse(raw);
+    const data = JSON.parse(cleanText);
 
-    // Verificar si hay errores de seguridad o bloqueos
-    if (responseData.promptFeedback?.blockReason) {
-      throw new Error("La IA bloqueó la generación: " + responseData.promptFeedback.blockReason);
+    if (!data.observaciones || !Array.isArray(data.observaciones)) {
+      throw new Error("Formato inválido: falta array 'observaciones'");
     }
 
-    const textContent = responseData.candidates?.[0]?.content?.parts?.[0]?.text;
+    const obs = data.observaciones.filter(o => typeof o === 'string' && o.trim().length > 10);
 
-    if (!textContent) {
-      Logger.log("Respuesta completa de Gemini: " + raw);
-      throw new Error("La IA no devolvió texto. Revise los logs para más detalles.");
+    if (obs.length !== 8) {
+      throw new Error(`Se esperaban 8 observaciones, se encontraron ${obs.length}`);
     }
 
-    // Limpiar el texto
-    let cleanText = textContent.trim();
-
-    // Remover bloques de código si los hay
-    if (cleanText.startsWith("```")) {
-      cleanText = cleanText.replace(/```[a-z]*\n?/, "").replace(/```\s*$/, "");
-      cleanText = cleanText.trim();
-    }
-
-    Logger.log("=== PARSING OBSERVACIONES ===");
-    Logger.log("Texto recibido (primeros 800 caracteres):");
-    Logger.log(cleanText.substring(0, 800));
-
-    // PARSING SIMPLIFICADO - Buscar delimitadores ---OBS1--- hasta ---OBS8---
-    const observaciones = [];
-
-    for (let i = 1; i <= 8; i++) {
-      const delimiter = `---OBS${i}---`;
-      const nextDelimiter = `---OBS${i + 1}---`;
-
-      // Buscar el delimitador actual
-      const startIndex = cleanText.indexOf(delimiter);
-
-      if (startIndex === -1) {
-        Logger.log(`No se encontró el delimitador ${delimiter}`);
-        continue;
-      }
-
-      // Extraer texto después del delimitador
-      const textAfterDelimiter = cleanText.substring(startIndex + delimiter.length);
-
-      // Buscar el siguiente delimitador o el final del texto
-      let endIndex;
-      if (i < 8) {
-        endIndex = textAfterDelimiter.indexOf(nextDelimiter);
-      } else {
-        // Para la última observación, tomar todo hasta el final
-        endIndex = textAfterDelimiter.length;
-      }
-
-      if (endIndex === -1) {
-        // Si no encuentra el siguiente delimitador, tomar hasta el final
-        endIndex = textAfterDelimiter.length;
-      }
-
-      // Extraer la observación
-      const observacion = textAfterDelimiter.substring(0, endIndex).trim();
-
-      if (observacion.length > 10) {
-        observaciones.push(observacion);
-        Logger.log(`✓ OBS${i}: ${observacion.substring(0, 60)}...`);
-      } else {
-        Logger.log(`✗ OBS${i}: Vacía o muy corta`);
-      }
-    }
-
-    // Validar que tengamos 8 observaciones
-    if (observaciones.length !== 8) {
-      Logger.log(`\n=== ERROR: Se esperaban 8 observaciones, se encontraron ${observaciones.length} ===`);
-      Logger.log("\nTEXTO COMPLETO RECIBIDO:");
-      Logger.log(cleanText);
-
-      throw new Error(`Se esperaban 8 observaciones pero se encontraron ${observaciones.length}. La IA no siguió el formato con delimitadores ---OBS1--- a ---OBS8---. Verifica los logs (Extensiones > Apps Script > Ejecuciones) para ver el texto completo.`);
-    }
-
-    // Validar longitud mínima
-    const observacionesCortas = observaciones.filter(obs => obs.length < 20);
-    if (observacionesCortas.length > 0) {
-      Logger.log(`Advertencia: ${observacionesCortas.length} observaciones son muy cortas`);
-    }
-
-    Logger.log("\n=== ✓ ÉXITO: 8 observaciones extraídas correctamente ===");
-    return observaciones;
+    return obs;
 
   } catch (e) {
-    Logger.log("Error en generarObservacionesConIA_: " + e.toString());
-    throw new Error("Error al generar observaciones con IA: " + e.message);
+    Logger.log("Error parseando JSON: " + e.toString());
+    Logger.log("Texto recibido: " + cleanText.substring(0, 500));
+    throw new Error("La IA no generó el formato correcto. Intenta de nuevo.");
+  }
+}
+
+/*************************************************************
+ * PROBAR CONEXIÓN
+ *************************************************************/
+function probarConexion() {
+  const proveedor = obtenerProveedor();
+  const modelo = obtenerModelo();
+
+  try {
+    const prompt = "Responde con un JSON simple: {\"mensaje\": \"Conexión exitosa\"}";
+
+    let resultado;
+    switch(proveedor) {
+      case "gemini":
+        resultado = generarConGemini_(prompt);
+        break;
+      case "openai":
+        resultado = generarConOpenAI_(prompt);
+        break;
+      case "claude":
+        resultado = generarConClaude_(prompt);
+        break;
+    }
+
+    return {
+      success: true,
+      message: `✅ Conexión exitosa con ${proveedor} (${modelo})`
+    };
+
+  } catch (e) {
+    throw new Error(`Error conectando con ${proveedor}: ${e.message}`);
   }
 }
