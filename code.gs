@@ -280,7 +280,7 @@ function obtenerModelo() {
   // Modelos por defecto según proveedor
   if (!modelo) {
     const defaults = {
-      "gemini": "gemini-2.0-flash-exp",
+      "gemini": "gemini-1.5-pro-latest",
       "openai": "gpt-4o-mini",
       "claude": "claude-3-5-sonnet-20241022"
     };
