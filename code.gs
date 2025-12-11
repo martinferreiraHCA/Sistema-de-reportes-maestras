@@ -553,11 +553,12 @@ function generarConGroq_(prompt) {
   const payload = {
     model: modelo,
     messages: [
-      { role: "system", content: "Eres un experto en educación que genera informes profesionales." },
+      { role: "system", content: "Eres un experto en educación que genera informes profesionales. Responde SIEMPRE en formato JSON válido." },
       { role: "user", content: prompt }
     ],
     temperature: 0.7,
-    max_tokens: 2048
+    max_tokens: 2048,
+    response_format: { type: "json_object" }
   };
 
   const resp = UrlFetchApp.fetch(url, {
@@ -590,8 +591,17 @@ function parsearJSON_(text) {
   let cleanText = text.trim();
 
   // Remover bloques de código markdown
-  if (cleanText.startsWith("```")) {
-    cleanText = cleanText.replace(/```json\n?/g, "").replace(/```\n?/g, "");
+  if (cleanText.includes("```")) {
+    cleanText = cleanText.replace(/```json\n?/gi, "").replace(/```\n?/g, "");
+  }
+
+  // Intentar extraer JSON si hay texto adicional
+  // Buscar el primer { y el último }
+  const firstBrace = cleanText.indexOf('{');
+  const lastBrace = cleanText.lastIndexOf('}');
+
+  if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+    cleanText = cleanText.substring(firstBrace, lastBrace + 1);
   }
 
   try {
@@ -603,16 +613,17 @@ function parsearJSON_(text) {
 
     const obs = data.observaciones.filter(o => typeof o === 'string' && o.trim().length > 10);
 
-    if (obs.length !== 8) {
-      throw new Error(`Se esperaban 8 observaciones, se encontraron ${obs.length}`);
+    if (obs.length < 8) {
+      throw new Error(`Se esperaban 8 observaciones, se encontraron ${obs.length}. Intenta de nuevo.`);
     }
 
-    return obs;
+    // Si hay más de 8, tomar solo las primeras 8
+    return obs.slice(0, 8);
 
   } catch (e) {
     Logger.log("Error parseando JSON: " + e.toString());
-    Logger.log("Texto recibido: " + cleanText.substring(0, 500));
-    throw new Error("La IA no generó el formato correcto. Intenta de nuevo.");
+    Logger.log("Texto recibido: " + text.substring(0, 500));
+    throw new Error("La IA no generó el formato correcto. Intenta de nuevo. Error: " + e.message);
   }
 }
 
