@@ -173,6 +173,12 @@
       <!-- Se llenará dinámicamente según el proveedor -->
     </select>
     <p class="model-hint" id="modelHint"></p>
+    <button class="secondary" id="btnListarModelos" style="margin-top: 4px;">
+      🔍 Listar Modelos Disponibles
+    </button>
+    <p style="font-size: 11px; color: #666; margin: 4px 0;">
+      💡 Consulta los modelos reales disponibles para tu cuenta
+    </p>
 
     <label>API Key</label>
     <input type="password" id="apiKey" placeholder="Ingresa tu API Key">
@@ -273,14 +279,38 @@ function actualizarProveedor() {
   const providerInfoDiv = document.getElementById("providerInfo");
   const modelHint = document.getElementById("modelHint");
 
-  // Limpiar y llenar modelos
+  // Intentar cargar modelos guardados del sessionStorage
+  const modelosGuardados = sessionStorage.getItem(`modelos_${proveedor}`);
+
   modeloSelect.innerHTML = "";
-  MODELOS[proveedor].forEach(m => {
-    const opt = document.createElement("option");
-    opt.value = m.value;
-    opt.textContent = m.label;
-    modeloSelect.appendChild(opt);
-  });
+
+  if (modelosGuardados) {
+    // Usar modelos consultados previamente
+    const modelos = JSON.parse(modelosGuardados);
+    modelos.forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m.id;
+      opt.textContent = m.nombre;
+      modeloSelect.appendChild(opt);
+    });
+    modelHint.textContent = `✅ Usando ${modelos.length} modelos consultados previamente`;
+  } else {
+    // Usar modelos por defecto
+    MODELOS[proveedor].forEach(m => {
+      const opt = document.createElement("option");
+      opt.value = m.value;
+      opt.textContent = m.label;
+      modeloSelect.appendChild(opt);
+    });
+
+    // Hints de modelos
+    const hints = {
+      gemini: "💡 Flash = Rápido | Pro = Mayor calidad",
+      openai: "💡 Mini = Económico | 4o = Mejor balance | Turbo = Máxima calidad",
+      claude: "💡 Haiku = Rápido | Sonnet = Balance | Opus = Máxima calidad"
+    };
+    modelHint.textContent = hints[proveedor] + " | 🔍 Haz clic en 'Listar Modelos' para ver todos";
+  }
 
   // Actualizar información del proveedor
   const info = PROVIDER_INFO[proveedor];
@@ -288,14 +318,6 @@ function actualizarProveedor() {
     💡 ${info.text}<br>
     📝 <a href="${info.url}" target="_blank">Obtener API Key aquí</a>
   `;
-
-  // Hints de modelos
-  const hints = {
-    gemini: "💡 Flash = Rápido | Pro = Mayor calidad",
-    openai: "💡 Mini = Económico | 4o = Mejor balance | Turbo = Máxima calidad",
-    claude: "💡 Haiku = Rápido | Sonnet = Balance | Opus = Máxima calidad"
-  };
-  modelHint.textContent = hints[proveedor];
 
   // Guardar proveedor seleccionado
   google.script.run
@@ -387,6 +409,52 @@ document.getElementById("btnProbarApi").onclick = function() {
       mostrarEstado("estadoApi", "❌ " + err.message, "error");
     })
     .probarConexion();
+};
+
+// Listar modelos disponibles
+document.getElementById("btnListarModelos").onclick = function() {
+  const proveedor = document.getElementById("proveedor").value;
+  const btn = this;
+
+  btn.disabled = true;
+  btn.textContent = "⏳ Consultando...";
+  mostrarEstado("estadoApi", "Consultando modelos disponibles...", "info");
+
+  google.script.run
+    .withSuccessHandler(function(result) {
+      btn.disabled = false;
+      btn.textContent = "🔍 Listar Modelos Disponibles";
+
+      if (result.success && result.modelos && result.modelos.length > 0) {
+        // Llenar dropdown con modelos reales
+        const modeloSelect = document.getElementById("modeloIA");
+        modeloSelect.innerHTML = "";
+
+        result.modelos.forEach(m => {
+          const opt = document.createElement("option");
+          opt.value = m.id;
+          opt.textContent = m.nombre;
+          modeloSelect.appendChild(opt);
+        });
+
+        // Guardar en sessionStorage
+        sessionStorage.setItem(`modelos_${proveedor}`, JSON.stringify(result.modelos));
+
+        let mensaje = `✅ Se encontraron ${result.modelos.length} modelos disponibles`;
+        if (result.nota) {
+          mensaje += `\n${result.nota}`;
+        }
+        mostrarEstado("estadoApi", mensaje, "success");
+      } else {
+        mostrarEstado("estadoApi", "No se encontraron modelos", "error");
+      }
+    })
+    .withFailureHandler(function(err) {
+      btn.disabled = false;
+      btn.textContent = "🔍 Listar Modelos Disponibles";
+      mostrarEstado("estadoApi", "❌ " + err.message + "\n💡 Asegúrate de haber guardado tu API Key primero", "error");
+    })
+    .listarModelosDisponibles();
 };
 
 // Cargar docentes
